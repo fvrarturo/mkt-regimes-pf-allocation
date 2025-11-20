@@ -1,0 +1,322 @@
+\begin{document}
+\begin{center}
+\LARGE
+\textbf{Macro Regimes, Cross-Asset Correlations, and Agentic AI for Dynamic Allocation}\\[10pt]
+\normalsize
+\end{center}
+% ABSTRACT AND KEYWORDS: Replace "Abstract text" with your abstract text of 100-200 words where noted below. Replace "keyword, keyword, keyword" with your 5-10 keywords, separated by commas, where noted below. 
+
+% MAIN BODY: Replace "Section Title," "Subsection Title," and "Subsubsection Title" with your section, subsection, and subsubsection titles, using title case to capitalize the first and all major words in these titles. Replace lorem ipsum text with your text for each section and subsection. Add additional sections and subsections as needed.
+\section{Methodology}
+
+In this section we describe our framework for macro regime identification and its use in explaining and forecasting the correlation between equities and bonds. The pipeline proceeds in four stages:
+\begin{enumerate}
+    \item construction of macro and text-based features,
+    \item regime classification based on these features,
+    \item estimation of regime-conditional stock--bond correlations, and
+    \item evaluation via train/test splits that respect both time-dependence and regime coverage.
+\end{enumerate}
+
+\subsection{Data and Feature Construction}
+
+We work at a weekly frequency over approximately 30 years of data. For each week $t$ we construct an $8$-dimensional feature vector
+\begin{equation}
+    x_t \in \mathbb{R}^8
+    =
+    \bigl(
+        \underbrace{\text{infl}_t, \text{growth}_t, \text{monpol}_t, \text{finstress}_t}_{\text{macro}},
+        \underbrace{\text{infl\_sent}_t, \text{growth\_sent}_t, \text{monpol\_sent}_t, \text{finstress\_sent}_t}_{\text{text sentiment}}
+    \bigr).
+\end{equation}
+
+\paragraph{Macro variables.}
+The first four entries of $x_t$ are hard macro variables, corresponding to the four categories most frequently emphasized in the macro/asset-allocation literature:
+\begin{itemize}
+    \item inflation (e.g.\ CPI or PCE inflation),
+    \item economic growth (e.g.\ industrial production or a growth proxy),
+    \item monetary policy stance (e.g.\ short rate level or surprise, yield curve slope),
+    \item financial conditions / market stress (e.g.\ credit spreads, volatility indices).
+\end{itemize}
+% specify that we'll base our computation of these "macro indices" based on a paper
+% by either Sebastien Page or Mark Kritzman
+These variables capture the main economic dimensions that affect asset-class behavior and cross-asset correlations.
+
+
+\paragraph{Text-derived sentiment variables.}
+The last four entries of $x_t$ are text-based sentiment scores aligned with the same four categories:
+\begin{equation}
+    Z_t = (z_t^{\pi}, z_t^{g}, z_t^{mp}, z_t^{fs}),
+\end{equation}
+where $z_t^{\pi}$ is an inflation-related sentiment score, $z_t^{g}$ relates to growth, $z_t^{mp}$ to monetary policy, and $z_t^{fs}$ to financial conditions.
+
+These scores are obtained via an agentic AI pipeline applied to a large corpus of dated news headlines and summaries. For each week $t$, the pipeline:
+\begin{enumerate}
+    \item aggregates relevant macro and market news,
+    \item uses a specialized classification agent to assign text to the four categories (inflation, growth, policy, financial conditions),
+    \item uses a fact-checking agent to correct or reject draft summaries,
+    \item produces a cleaned weekly summary, which is mapped to the four numerical sentiment scores $(z_t^{\pi}, z_t^{g}, z_t^{mp}, z_t^{fs})$.
+\end{enumerate}
+This design ensures that text features mirror the macro structure and can be used seamlessly in regime classification.
+
+\paragraph{Cross--asset correlations.}
+Although our primary focus is the equity--bond relationship, the same procedure
+applies to any pair of asset classes. Let $R^{(i)}_t$ and $R^{(j)}_t$ denote
+weekly returns on two asset indices---for example:
+\begin{itemize}
+    \item equities vs.\ broad bonds (S\&P~500 vs.\ AGG),
+    \item equities vs.\ Treasuries (S\&P~500 vs.\ a 10Y Treasury index),
+    \item equities vs.\ commodities.
+\end{itemize}
+For a chosen window length $L$, we compute the realized correlation between
+assets $i$ and $j$ at time $t$ using only past returns:
+\begin{equation}
+    y^{(i,j)}_t
+    =
+    \widehat{\rho}_{i,j}(t)
+    =
+    \mathrm{Corr}\!\left(
+        R^{(i)}_{t-L+1:t},
+        R^{(j)}_{t-L+1:t}
+    \right).
+\end{equation}
+This scalar series $y^{(i,j)}_t$ represents the observed co-movement of the
+two assets and is the target quantity whose regime-specific behavior we seek
+to estimate. In the empirical analysis, we may consider several such pairs
+simultaneously; for each pair $(i,j)$ we aim to understand and forecast the
+distribution of $y^{(i,j)}_t$ as a function of the underlying macro regime
+probabilities.
+
+\subsection{Regime Classification}
+
+The central object of interest is a set of macro regimes $r \in \{1, \dots, R\}$ and, for each week $t$, a vector of soft regime probabilities
+\begin{equation}
+    p_{r,t} = P(\text{regime } r \mid x_t), \qquad r = 1,\dots,R.
+\end{equation}
+We intentionally avoid hard assignments; instead, each observation can belong to multiple regimes with different weights. This better reflects economic reality and reduces sensitivity to arbitrary thresholds.
+
+We consider three families of classifiers: manual (theory-driven), purely data-driven (unsupervised ML), and guided (hybrid) classifiers.
+
+\subsubsection{Manual / Macro-Theory Regimes}
+
+In the manual approach, regimes are defined by economic logic. Examples include:
+\begin{itemize}
+    \item \emph{Stagflation}: high inflation and low or negative growth.
+    \item \emph{Overheating}: high inflation and strong growth.
+    \item \emph{Recessionary stress}: weak growth and tight financial conditions.
+    \item \emph{Disinflationary expansion}: low inflation and solid growth.
+    \item \emph{Monetary tightening shock}: hawkish policy stance and rising yields.
+\end{itemize}
+\paragraph{Why not use hard macro thresholds?}
+Simple threshold rules---for example, declaring a recession whenever 
+$\text{growth}_t < 0$---produce hard classifications in which each week is
+assigned to exactly one regime with probability $1$. Such rules are highly
+unstable (small data revisions flip the regime), ignore uncertainty, and 
+fail to capture the grey zones that characterize real macroeconomic states.
+For instance, a growth rate of $-0.1\%$ and $+0.1\%$ would generate opposite
+regimes despite being economically indistinguishable.
+
+\paragraph{Soft regime membership via prototypes.}
+Instead of threshold rules, we define each regime $r$ by a prototype
+macro-sentiment configuration $\mu_r$ together with a covariance 
+matrix $\Omega_r$ that determines its spread. Given an observed feature
+vector $x_t$, we compute its Mahalanobis distance to each prototype,
+\[
+d_r(x_t) = (x_t - \mu_r)^\top \Omega_r^{-1} (x_t - \mu_r),
+\]
+and convert distances into smooth, overlapping regime probabilities via
+a softmax transformation,
+\[
+p_{r,t} = 
+\frac{\exp\{-\tfrac{1}{2} d_r(x_t)\}}
+     {\sum_{k=1}^R \exp\{-\tfrac{1}{2} d_k(x_t)\}}.
+\]
+This produces partial memberships such as 
+$p_{\text{stagflation},t}=0.22$ and $p_{\text{recession},t}=0.41$, 
+rather than rigid 0--1 assignments, thereby capturing uncertainty and
+allowing observations to lie near multiple regime boundaries.
+
+\paragraph{How to choose the thresholds} Soft regimes require prototype macro conditions, not hard numeric rules. For example:
+$$
+\begin{cases}
+\text{Stagflation prototype:}\;\; \mu_{\text{stag}} = (\text{infl high}, \text{growth low}, \text{hawkish policy}, \text{high stress}) \\
+\text{Recession prototype:}\;\; \mu_{\text{recession}} = (\text{infl low}, \text{growth very low}, \text{policy easing}, \text{stress high}) \\
+\text{Expansion prototype:}\;\; \mu_{\text{expansion}} = (\text{infl steady}, \text{growth positive}, \text{neutral policy}, \text{low stress})
+\end{cases}
+$$
+You choose the relative ordering (high/low), not the hard absolute values. The covariance ($\Omega_r$) controls how “wide” each regime is.
+
+\subsubsection{ML-Found Regimes (Unsupervised Discovery)}
+
+In the second approach, regimes are discovered directly from the data, without
+pre-imposed economic labels. The goal is to identify natural clusters in the
+$8$-dimensional macro--sentiment feature space and interpret them \emph{ex post}
+as macro regimes. We consider several unsupervised methods:
+\begin{itemize}
+    \item Gaussian mixture models (GMM), yielding soft probabilities 
+    $p_{r,t} = P(\text{cluster}=r \mid x_t)$ and allowing for full covariance
+    structures within each cluster;
+    \item hidden Markov models (HMM), which incorporate regime persistence via a 
+    Markov transition matrix and produce time-smooth probabilities $p_{r,t}$;
+    \item simpler clustering methods such as $k$-means or spectral clustering;
+    \item optionally, non-linear representation learning (e.g.\ autoencoders)
+    followed by clustering in a latent space.
+\end{itemize}
+
+To avoid regimes that are statistically arbitrary or economically meaningless, 
+we impose or evaluate the following desirable properties:
+\begin{description}
+    \item[Stability:] regimes should exhibit reasonable persistence, rather than
+    switching week-by-week. HMMs encode this naturally; for GMMs or $k$-means we
+    may penalize high-frequency switching or inspect average regime durations.
+    \item[Distinguishability:] regime centroids $\mu_r$ and covariance matrices
+    $\Sigma_r$ should differ materially (e.g.\ $\|\mu_r - \mu_{r'}\|$ large for most
+    pairs $(r,r')$). This ensures that discovered regimes represent distinct 
+    economic environments.
+    \item[Economic interpretability:] regimes should differ in recognizable macro 
+    dimensions (inflation pressure, growth momentum, monetary stance, financial 
+    stress), not only in idiosyncratic directions.
+\end{description}
+
+\paragraph{Example: GMM-based regime discovery with constraints.}
+To illustrate, consider fitting a Gaussian mixture model with $R$ components to the 
+feature vectors $x_t$. The unconstrained log-likelihood objective is
+\[
+    \mathcal{L}_{\text{GMM}}
+    =
+    \sum_{t=1}^T 
+    \log\!\left(
+        \sum_{r=1}^R 
+        \pi_r \,
+        \mathcal{N}(x_t \mid \mu_r, \Sigma_r)
+    \right),
+\]
+where $\pi_r$ are mixture weights, $\mu_r$ are cluster means, and 
+$\Sigma_r$ are cluster covariance matrices.
+
+To encourage economically meaningful regimes, we augment this objective with 
+penalties reflecting the desirable properties listed above:
+\begin{equation}
+    \mathcal{L}
+    =
+    \mathcal{L}_{\text{GMM}}
+    \;
+    - \;
+    \lambda_{\text{stab}} 
+        \sum_{t=2}^T 
+        \sum_{r=1}^R 
+        |p_{r,t} - p_{r,t-1}|
+    \;
+    - \;
+    \lambda_{\text{dist}}
+        \sum_{r < r'} 
+        \|\mu_r - \mu_{r'}\|^2
+    \;
+    - \;
+    \lambda_{\text{econ}}
+        \sum_{r=1}^R 
+        \phi(\mu_r),
+    \label{eq:gmm-constrained}
+\end{equation}
+where:
+\begin{itemize}
+    \item the \emph{stability penalty} discourages week-to-week regime flipping;
+    \item the \emph{distinguishability penalty} encourages regime centers to be 
+    well-separated in macro space;
+    \item $\phi(\mu_r)$ measures deviation from economically plausible directions 
+    (for example, ensuring that at least one of the four macro dimensions differs
+    substantially across regimes).
+\end{itemize}
+
+Optimizing~\eqref{eq:gmm-constrained} yields regime probabilities 
+$p_{r,t}=P(\text{regime }r\mid x_t)$ that reflect both the statistical structure 
+of the data and economically motivated constraints. After fitting, each cluster 
+can be interpreted by inspecting its prototype $\mu_r$, its covariance $\Sigma_r$, 
+and the distribution of hard macro and sentiment variables within it. 
+
+\paragraph{Using correlations for diagnostics.}
+Importantly, we do not use stock--bond correlations $y_t$ as inputs to regime 
+training. Instead, once the regime probabilities $p_{r,t}$ have been obtained 
+from macro and sentiment features alone, we examine the regime-conditional behavior 
+of $y_t$ to assess whether the discovered regimes meaningfully differentiate 
+cross-asset co-movements. For example, one may check whether
+\[
+    \hat{\theta}_r = 
+    \frac{\sum_{t} p_{r,t} y_t}{\sum_t p_{r,t}}
+\]
+differs substantially across $r$. This provides an economically relevant 
+validation step without contaminating the regime classifier with asset-return data.
+
+\subsubsection{Guided ML Classifiers (Hybrid Regimes)}
+
+The third family combines economic intuition and data-driven clustering. The objective is to retain interpretability while allowing the data to adjust boundaries and reveal structure that theory alone may miss.
+
+One way to formalize this is to start from theory-based prototypes $\mu_r^{\text{theory}}$ and then estimate cluster centers $\mu_r$ via GMM or similar, subject to a penalty that keeps them close to the theoretical prototypes:
+\begin{equation}
+    L = L_{\text{GMM}} + \lambda \sum_{r=1}^{R} \|\mu_r - \mu_r^{\text{theory}}\|^2,
+\end{equation}
+where $L_{\text{GMM}}$ is the standard negative log-likelihood of a Gaussian mixture and $\lambda > 0$ controls the strength of the economic anchor.
+
+Alternatively, we can use weak supervision: an AI agent labels a small fraction of weeks as ``likely high inflation regime'', ``likely recessionary regime'', etc., and these labels are used as soft constraints in training the unsupervised model. In both cases, text-derived sentiment features are particularly valuable for helping to align ML-discovered clusters with interpretable macro narratives.
+
+\subsection{Regime-Conditional Stock--Bond Correlation}
+Given a regime model (manual, ML, or hybrid) producing $p_{r,t}$ and a time series of realized stock--bond correlations $y_t$, we wish to estimate the behavior of $y_t$ within each pure regime.
+
+We assume that, conditional on regime $r$, the correlation $y_t$ has a regime-specific distribution summarized by
+\begin{equation}
+    \theta_r = \mathbb{E}[y_t \mid \text{regime } r], \qquad
+    \sigma_r^2 = \mathrm{Var}(y_t \mid \text{regime } r),
+\end{equation}
+and possibly higher moments or tail behavior.
+
+Because we only observe soft probabilities $p_{r,t}$ rather than hard regime labels, we use weighted estimators. For each regime $r$ we define the regime-specific mean
+\begin{equation}
+    \hat{\theta}_r =
+    \frac{\sum_{t} p_{r,t}\, y_t}{\sum_{t} p_{r,t}},
+\end{equation}
+and the regime-specific variance
+\begin{equation}
+    \hat{\sigma}_r^2 =
+    \frac{\sum_{t} p_{r,t} \bigl(y_t - \hat{\theta}_r\bigr)^2}{\sum_{t} p_{r,t}}.
+\end{equation}
+Empirical regime-conditional distributions can be visualized via weighted histograms or kernel density estimates, using $p_{r,t}$ as observation weights.
+
+At any time $t$, the mixture expectation of $y_t$ implied by the regime model is
+\begin{equation}
+    \hat{y}_t^{\text{mix}} = \sum_{r=1}^{R} p_{r,t}\, \hat{\theta}_r,
+\end{equation}
+which can be interpreted as the forecast of stock--bond correlation given the current macro regime mixture. A key question for our empirical work is whether these regime-based forecasts track realized correlations out of sample.
+
+\subsection{Train/Test Design and Evaluation}
+
+We distinguish between the regime model and the mapping from regimes to correlations.
+
+\paragraph{Regime model.}
+The regime classifier is trained using only macro and text features $x_t$, not the correlation target $y_t$. Because regimes are intended to be macro-economic constructs that can be reused for multiple purposes, and because $y_t$ is noisy, we prefer to keep regime identification independent of any particular asset correlation series. In practice, we often fit the regime model (manual or ML) on the full 30-year sample to obtain $p_{r,t}$ for all $t$.
+
+\paragraph{Correlation estimation and forecasting.}
+We then study the mapping from regime probabilities $(p_{1,t}, \dots, p_{R,t})$ to the realized correlation $y_t$. For evaluation, it is important to avoid both temporal leakage and regime imbalance.
+
+Because $y_t$ is computed as a rolling-window correlation over $L$ past weeks, individual $y_t$ values are highly overlapping in time. To mitigate leakage, we partition the 30-year sample into contiguous blocks (e.g.\ one-year or two-year blocks) and treat each block as an atomic unit. We consider:
+\begin{itemize}
+    \item a pure chronological split, where early blocks (e.g.\ first two thirds of the sample) are used for training and later blocks for testing; and
+    \item optionally, regime-stratified block splits, where blocks are assigned to training or testing such that each regime appears meaningfully in both sets (based on average $p_{r,t}$ within the block).
+\end{itemize}
+
+Using the training set, we estimate regime-specific means $\hat{\theta}_r$ as in
+\begin{equation}
+    \hat{\theta}_r^{\text{train}} =
+    \frac{\sum_{t \in \mathcal{T}_{\text{train}}} p_{r,t}\, y_t}
+         {\sum_{t \in \mathcal{T}_{\text{train}}} p_{r,t}},
+\end{equation}
+where $\mathcal{T}_{\text{train}}$ denotes the indices of training weeks. On the test set, we form regime-mixture predictions
+\begin{equation}
+    \hat{y}_t^{\text{mix}} = \sum_{r=1}^{R} p_{r,t}\, \hat{\theta}_r^{\text{train}}, \qquad t \in \mathcal{T}_{\text{test}},
+\end{equation}
+and compare them to realized $y_t$.
+
+This design respects time ordering (in the chronological split), avoids overlapping correlation windows across train and test, and ensures that each macro regime is represented in both samples. It allows us to answer the central question: given that we observe a certain mixture of macro regimes today, do the stock--bond correlations we see out of sample resemble the historical regime-conditional behavior we estimated in sample?
+
+\paragraph{Extensions.}
+Finally, regime-based correlation forecasts can be used in simple dynamic allocation rules, for example adjusting a stock--bond mix depending on whether the expected correlation $\hat{y}_t^{\text{mix}}$ is positive (diversification breakdown) or negative (bonds hedge equities). While the focus of this project is on regime identification and correlation behavior, such allocation experiments provide an intuitive link to asset allocation practice.
+
+\end{document}
