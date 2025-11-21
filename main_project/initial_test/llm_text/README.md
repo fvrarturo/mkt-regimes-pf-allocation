@@ -169,9 +169,10 @@ The system automatically selects the LLM based on environment variables (priorit
 3. **OpenAI API** (if `OPENAI_API_KEY` set) - Cloud, paid, reliable
 
 **Groq Models Available:**
-- `llama-3.1-8b-instant` (default, fastest)
+- `llama-3.1-8b-instant` (default, fast, 500K TPD limit)
 - `llama-3.1-70b-versatile` (more capable, slower)
-- `mixtral-8x7b-32768` (good balance)
+- `groq/compound-mini` (unlimited TPD, 70K TPM)
+- `groq/compound` (unlimited TPD, 70K TPM, more capable)
 
 ### Agent Configuration (`sentiment_agents.py`)
 
@@ -309,7 +310,7 @@ pip install -r ../../../../requirements.txt
 - **Approval required**: All scores must be fact-checker approved before finalizing
 - **Incremental saving**: Progress saved after each week (no data loss on interruption)
 - **API costs**: Groq API is FREE (no cost, generous rate limits)
-- **Model choice**: `llama-3.1-8b-instant` is fast and sufficient for sentiment analysis
+- **Model choice**: `llama-3.1-8b-instant` is the default (fast, sufficient for sentiment analysis). With 9 API keys, you get 14.4K × 9 = 129,600 requests/day total
 
 ## Next Steps
 

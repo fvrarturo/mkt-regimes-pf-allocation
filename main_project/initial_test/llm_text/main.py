@@ -29,6 +29,8 @@ from llm_config import (
     get_groq_llm_model,
     rotate_to_next_groq_key,
     are_all_groq_keys_exhausted,
+    get_current_groq_key_index,
+    mark_key_exhausted,
     GROQ_API_KEYS,
 )
 
@@ -105,8 +107,9 @@ News articles:
             analyze_prompt += f"\nNote: Previous attempt was rejected. Please reconsider based on the feedback."
         
         # Retry logic with API key rotation for rate limits
+        # Use a larger max_retries to allow cycling through keys multiple times
         sentiment_result = None
-        max_retries = len(GROQ_API_KEYS) if GROQ_API_KEYS else 1
+        max_retries = len(GROQ_API_KEYS) * 3 if GROQ_API_KEYS else 3  # Allow 3 cycles through all keys
         for retry_attempt in range(max_retries):
             # Always get fresh agents from the module (they may have been recreated)
             sentiment_analyzer_agent = sentiment_agents.sentiment_analyzer_agent
@@ -130,23 +133,27 @@ News articles:
                     "RateLimitError" in error_type_str
                 )
                 if is_rate_limit:
-                    if retry_attempt < max_retries - 1:
-                        # Try next API key
-                        next_key = rotate_to_next_groq_key()
-                        if next_key:
-                            print(f"    ⚠ Rate limit hit, rotating to next API key ({retry_attempt + 2}/{max_retries})...")
-                            new_model = get_groq_llm_model(next_key)
-                            recreate_agents_with_new_key(new_model)
-                            # Agents are now recreated in the module, next iteration will pick them up
-                            continue  # Retry with new key
-                        else:
-                            print(f"    ✗ All API keys exhausted!")
-                            raise RuntimeError("All Groq API keys have been exhausted. Cannot continue.")
+                    # Mark current key as exhausted
+                    current_idx = get_current_groq_key_index()
+                    mark_key_exhausted(current_idx)
+                    # Rotate to next non-exhausted key
+                    next_key = rotate_to_next_groq_key()
+                    if next_key:
+                        current_key_idx = get_current_groq_key_index() + 1
+                        print(f"    ⚠ Rate limit hit, rotating to next API key ({current_key_idx}/{len(GROQ_API_KEYS)})...")
+                        new_model = get_groq_llm_model(next_key)
+                        recreate_agents_with_new_key(new_model)
+                        # Agents are now recreated in the module, next iteration will pick them up
+                        # Add a delay before retrying to allow rate limits to reset
+                        import time
+                        wait_time = 5  # Wait 5 seconds before retrying
+                        print(f"    ⏳ Waiting {wait_time} seconds before retrying...")
+                        time.sleep(wait_time)
+                        continue  # Retry with new key
                     else:
-                        # Last attempt failed
-                        if are_all_groq_keys_exhausted():
-                            raise RuntimeError("All Groq API keys have been exhausted. Cannot continue.")
-                        raise
+                        # This should never happen now since rotate_to_next_groq_key always returns a key
+                        print(f"    ⚠ Unexpected: rotate_to_next_groq_key returned None")
+                        raise RuntimeError("Unexpected error: rotate_to_next_groq_key returned None")
                 else:
                     # Not a rate limit error, re-raise
                     raise
@@ -306,8 +313,9 @@ News articles analyzed (first 2000 chars):
 """
         
         # Retry logic with API key rotation for rate limits
+        # Use a larger max_retries to allow cycling through keys multiple times
         check_result_obj = None
-        max_retries = len(GROQ_API_KEYS) if GROQ_API_KEYS else 1
+        max_retries = len(GROQ_API_KEYS) * 3 if GROQ_API_KEYS else 3  # Allow 3 cycles through all keys
         for retry_attempt in range(max_retries):
             # Always get fresh agents from the module (they may have been recreated)
             fact_checker_agent = sentiment_agents.fact_checker_agent
@@ -329,23 +337,27 @@ News articles analyzed (first 2000 chars):
                     "RateLimitError" in error_type_str
                 )
                 if is_rate_limit:
-                    if retry_attempt < max_retries - 1:
-                        # Try next API key
-                        next_key = rotate_to_next_groq_key()
-                        if next_key:
-                            print(f"    ⚠ Rate limit hit during fact-check, rotating to next API key ({retry_attempt + 2}/{max_retries})...")
-                            new_model = get_groq_llm_model(next_key)
-                            recreate_agents_with_new_key(new_model)
-                            # Agents are now recreated in the module, next iteration will pick them up
-                            continue  # Retry with new key
-                        else:
-                            print(f"    ✗ All API keys exhausted!")
-                            raise RuntimeError("All Groq API keys have been exhausted. Cannot continue.")
+                    # Mark current key as exhausted
+                    current_idx = get_current_groq_key_index()
+                    mark_key_exhausted(current_idx)
+                    # Rotate to next non-exhausted key
+                    next_key = rotate_to_next_groq_key()
+                    if next_key:
+                        current_key_idx = get_current_groq_key_index() + 1
+                        print(f"    ⚠ Rate limit hit during fact-check, rotating to next API key ({current_key_idx}/{len(GROQ_API_KEYS)})...")
+                        new_model = get_groq_llm_model(next_key)
+                        recreate_agents_with_new_key(new_model)
+                        # Agents are now recreated in the module, next iteration will pick them up
+                        # Add a delay before retrying to allow rate limits to reset
+                        import time
+                        wait_time = 5  # Wait 5 seconds before retrying
+                        print(f"    ⏳ Waiting {wait_time} seconds before retrying...")
+                        time.sleep(wait_time)
+                        continue  # Retry with new key
                     else:
-                        # Last attempt failed
-                        if are_all_groq_keys_exhausted():
-                            raise RuntimeError("All Groq API keys have been exhausted. Cannot continue.")
-                        raise
+                        # This should never happen now since rotate_to_next_groq_key always returns a key
+                        print(f"    ⚠ Unexpected: rotate_to_next_groq_key returned None")
+                        raise RuntimeError("Unexpected error: rotate_to_next_groq_key returned None")
                 else:
                     # Not a rate limit error, re-raise
                     raise
@@ -475,8 +487,15 @@ async def main():
             skipped_count += 1
             continue
             
-        week_data = weekly_news[week_start]
-        scores = await process_week(week_start, week_data, state_summary)
+        try:
+            week_data = weekly_news[week_start]
+            scores = await process_week(week_start, week_data, state_summary)
+        except Exception as e:
+            print(f"  ✗ Error processing week {week_start}: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"  Continuing with next week...")
+            continue
         
         if scores:
             # Append to CSV immediately (incremental save)

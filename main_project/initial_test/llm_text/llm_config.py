@@ -33,6 +33,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Track current API key index for rotation
 _current_groq_key_index = 0
 
+# Track which keys have hit rate limits (to skip them temporarily)
+_exhausted_key_indices = set()
+
 def get_groq_llm_model(api_key: str) -> OpenAIChatCompletionsModel:
     """Create a Groq LLM model with the given API key."""
     model_name = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
@@ -56,13 +59,48 @@ def get_next_groq_api_key() -> Optional[str]:
     return key
 
 
+def mark_key_exhausted(key_index: int):
+    """Mark a key as exhausted (hit rate limit)."""
+    global _exhausted_key_indices
+    _exhausted_key_indices.add(key_index)
+    print(f"    ⚠️  Marked key {key_index + 1}/{len(GROQ_API_KEYS)} as exhausted (will skip for now)")
+
 def rotate_to_next_groq_key() -> Optional[str]:
-    """Rotate to the next Groq API key. Returns the new key or None if all exhausted."""
-    global _current_groq_key_index
-    _current_groq_key_index += 1
-    if _current_groq_key_index >= len(GROQ_API_KEYS):
-        return None
-    print(f"🔄 Rotating to Groq API key {_current_groq_key_index + 1}/{len(GROQ_API_KEYS)}")
+    """Rotate to the next Groq API key. Skips exhausted keys and cycles through all keys."""
+    global _current_groq_key_index, _exhausted_key_indices
+    
+    # Try to find a non-exhausted key
+    attempts = 0
+    max_attempts = len(GROQ_API_KEYS) * 2  # Allow cycling through twice
+    
+    while attempts < max_attempts:
+        _current_groq_key_index += 1
+        if _current_groq_key_index >= len(GROQ_API_KEYS):
+            # Reset to start if we've gone through all keys
+            print(f"⚠️  Rotated through all {len(GROQ_API_KEYS)} keys. Resetting to key 1...")
+            _current_groq_key_index = 0
+            # Clear exhausted keys after one full cycle (they may have reset)
+            if _exhausted_key_indices:
+                print(f"    Clearing exhausted keys list (rate limits may have reset)")
+                _exhausted_key_indices.clear()
+            import time
+            time.sleep(2)  # Brief pause before retrying
+        
+        # Skip if this key is exhausted
+        if _current_groq_key_index in _exhausted_key_indices:
+            attempts += 1
+            continue
+        
+        # Found a non-exhausted key
+        print(f"🔄 Rotating to Groq API key {_current_groq_key_index + 1}/{len(GROQ_API_KEYS)}")
+        return GROQ_API_KEYS[_current_groq_key_index]
+    
+    # All keys exhausted
+    print(f"⚠️  All keys appear to be exhausted. Resetting exhausted list and trying again...")
+    _exhausted_key_indices.clear()
+    _current_groq_key_index = 0
+    import time
+    time.sleep(5)  # Longer pause before retrying
     return GROQ_API_KEYS[_current_groq_key_index]
 
 
@@ -72,8 +110,10 @@ def get_current_groq_key_index() -> int:
 
 
 def are_all_groq_keys_exhausted() -> bool:
-    """Check if all Groq API keys have been exhausted."""
-    return _current_groq_key_index >= len(GROQ_API_KEYS)
+    """Check if all Groq API keys have been exhausted. 
+    Note: This is now always False since we reset to key 0 after exhausting all keys.
+    The actual check should be based on consecutive failures, not index position."""
+    return False  # Never truly exhausted - we reset and retry
 
 
 if USE_OLLAMA:
