@@ -122,7 +122,7 @@ News articles:
             except Exception as e:
                 error_str = str(e)
                 error_type_str = str(type(e))
-                # Check if it's a rate limit error (TPM or TPD)
+                # Check if it's a rate limit error (TPM or TPD) or organization restriction
                 is_rate_limit = (
                     "rate_limit" in error_str.lower() or 
                     "429" in error_str or 
@@ -130,7 +130,9 @@ News articles:
                     "tokens per minute" in error_str.lower() or
                     "tpm" in error_str.lower() or
                     "tpd" in error_str.lower() or
-                    "RateLimitError" in error_type_str
+                    "RateLimitError" in error_type_str or
+                    "organization_restricted" in error_str.lower() or
+                    "organization has been restricted" in error_str.lower()
                 )
                 if is_rate_limit:
                     # Mark current key as exhausted
@@ -326,7 +328,7 @@ News articles analyzed (first 2000 chars):
             except Exception as e:
                 error_str = str(e)
                 error_type_str = str(type(e))
-                # Check if it's a rate limit error (TPM or TPD)
+                # Check if it's a rate limit error (TPM or TPD) or organization restriction
                 is_rate_limit = (
                     "rate_limit" in error_str.lower() or 
                     "429" in error_str or 
@@ -334,7 +336,9 @@ News articles analyzed (first 2000 chars):
                     "tokens per minute" in error_str.lower() or
                     "tpm" in error_str.lower() or
                     "tpd" in error_str.lower() or
-                    "RateLimitError" in error_type_str
+                    "RateLimitError" in error_type_str or
+                    "organization_restricted" in error_str.lower() or
+                    "organization has been restricted" in error_str.lower()
                 )
                 if is_rate_limit:
                     # Mark current key as exhausted

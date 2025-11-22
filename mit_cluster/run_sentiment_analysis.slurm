@@ -22,7 +22,15 @@ echo "Virtual environment activated"
 
 # Set environment variables for LLM API
 # Using Groq (FREE fast Llama API) with multiple keys for rotation
-export GROQ_API_KEYS="your-groq-api-key-1,your-groq-api-key-2,your-groq-api-key-3,your-groq-api-key-4,your-groq-api-key-5"
+# NOTE: Set GROQ_API_KEYS environment variable before running this script
+# Example: export GROQ_API_KEYS="key1,key2,key3"
+# Get free keys at https://console.groq.com
+if [ -z "$GROQ_API_KEYS" ]; then
+    echo "ERROR: GROQ_API_KEYS environment variable is not set!"
+    echo "Please set it before submitting this job:"
+    echo "  export GROQ_API_KEYS='your-key1,your-key2,...'"
+    exit 1
+fi
 export GROQ_MODEL="llama-3.1-8b-instant"
 
 echo "Environment variables set"
