@@ -1,1 +1,5 @@
 tools/mit_cluster/run_sentiment_analysis.slurm
+
+# macOS .DS_Store files
+.DS_Store
+**/.DS_Store
