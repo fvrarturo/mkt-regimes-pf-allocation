@@ -3,3 +3,10 @@ tools/mit_cluster/run_sentiment_analysis.slurm
 # macOS .DS_Store files
 .DS_Store
 **/.DS_Store
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
