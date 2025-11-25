@@ -1,0 +1,17 @@
+regime,regime_name,category,top_variable,correlation,abs_correlation,pvalue,rank
+0,Low Growth / High Inflation,Inflation,PCE_price_index,0.04151392260672078,0.04151392260672078,0.4306178794586488,9
+0,Low Growth / High Inflation,Economic Growth,unemployment,0.07924382993150622,0.07924382993150622,0.13202831645844681,1
+0,Low Growth / High Inflation,Monetary Policy,m2_real_money_supply,0.06054571209553543,0.06054571209553543,0.2501398559958412,2
+0,Low Growth / High Inflation,Financial Conditions,nat_fin_condition_indx,-0.052064887835478205,0.052064887835478205,0.3228160239645277,3
+1,High Growth / High Inflation,Inflation,PCE_price_index,0.033991589723499555,0.033991589723499555,0.5289924643603059,6
+1,High Growth / High Inflation,Economic Growth,unemployment,0.07960387440937623,0.07960387440937623,0.1398823541395331,1
+1,High Growth / High Inflation,Monetary Policy,m2_real_money_supply,0.044563812485849626,0.044563812485849626,0.40907621897114677,3
+1,High Growth / High Inflation,Financial Conditions,nat_fin_condition_indx,-0.06309909752919363,0.06309909752919363,0.24221781245579121,2
+2,High Growth / Low Inflation,Inflation,PCE_price_index,0.020820662289631107,0.020820662289631107,0.6953592152782639,8
+2,High Growth / Low Inflation,Economic Growth,unemployment,0.09312724921129424,0.09312724921129424,0.07923315858776991,1
+2,High Growth / Low Inflation,Monetary Policy,10y_treasury_const_maturity_rate,-0.038357308565031764,0.038357308565031764,0.47053595149615957,4
+2,High Growth / Low Inflation,Financial Conditions,nat_fin_condition_indx,-0.06503007276835399,0.06503007276835399,0.22086100827067745,2
+3,Low Growth / Low Inflation,Inflation,PCE_price_index,0.023100335457729406,0.023100335457729406,0.6530373650883701,12
+3,Low Growth / Low Inflation,Economic Growth,unemployment,0.11390321209789576,0.11390321209789576,0.026177287542046956,2
+3,Low Growth / Low Inflation,Monetary Policy,m2_real_money_supply,0.06270648973069712,0.06270648973069712,0.2219550356948783,3
+3,Low Growth / Low Inflation,Financial Conditions,nat_fin_condition_indx,-0.14399230505339108,0.14399230505339108,0.004855065238561496,1

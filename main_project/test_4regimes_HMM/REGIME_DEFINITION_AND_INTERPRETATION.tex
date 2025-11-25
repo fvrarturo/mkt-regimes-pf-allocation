@@ -1,0 +1,139 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\geometry{margin=1in}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    pdftitle={Regime Definition and Interpretation Guide}
+}
+
+\title{Regime Definition and Interpretation Guide}
+\author{TROWE Code}
+\date{2025}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Regime Definition Process}
+
+\subsection{Features Used (4 Total)}
+
+The HMM uses \textbf{only 4 features}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Macro (2)}: \texttt{gdp}, \texttt{PCE\_price\_index} (prefer \texttt{zscore\_pct\_change\_mom})
+    \item \textbf{Sentiment (2)}: \texttt{ec\_growth\_sentiment}, \texttt{inflation\_sentiment}
+\end{itemize}
+
+\subsection{Processing Pipeline}
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Standardization}: Macro and sentiment features standardized separately
+    \item \textbf{Weighted Combination}: \texttt{combined = macro\_scaled * 0.4 + sentiment\_scaled * 0.6}
+    \item \textbf{HMM Discovery}: Gaussian HMM with diagonal covariance discovers 4 hidden states (10 random initializations)
+\end{enumerate}
+
+\subsection{Regime Interpretation}
+
+After HMM discovery, regimes are assigned to quadrants:
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Growth Proxy} = mean(\texttt{gdp}, \texttt{ec\_growth\_sentiment})
+    \item \textbf{Inflation Proxy} = mean(\texttt{PCE\_price\_index}, \texttt{inflation\_sentiment})
+\end{itemize}
+
+\textbf{Assignment}: Regimes classified using \textbf{absolute thresholds} relative to historical mean (zero):
+\begin{itemize}[leftmargin=*]
+    \item \textbf{High Growth} = \texttt{avg\_growth >= 0} (above average)
+    \item \textbf{Low Growth} = \texttt{avg\_growth < 0} (below average)
+    \item \textbf{High Inflation} = \texttt{avg\_inflation >= 0} (above average)
+    \item \textbf{Low Inflation} = \texttt{avg\_inflation < 0} (below average)
+\end{itemize}
+
+\subsection{Actual Regimes Discovered}
+
+Based on the data, the following regimes are identified:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{High Growth / High Inflation}: Expansion with Rising Prices (monetary tightening) - R1
+    \item \textbf{High Growth / Low Inflation}: Goldilocks Economy (best for risk assets) - R2
+    \item \textbf{Low Growth / Low Inflation}: Recession/Deflation (monetary easing, fiscal stimulus) - R0 (moderate), R3 (extreme)
+\end{enumerate}
+
+\textbf{Note}: The ``Low Growth / High Inflation'' (Stagflation) quadrant is \textbf{not present} in the current data. All Low Growth regimes have below-average inflation.
+
+\section{Scatter Plot Interpretation}
+
+\subsection{Value Meaning}
+
+Axes show \textbf{standardized values} relative to historical mean:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{0} = Historical average
+    \item \textbf{Positive} = Above average
+    \item \textbf{Negative} = Below average
+\end{itemize}
+
+\subsection{Calculation}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Average Growth (X-axis)} = mean(\texttt{gdp}, \texttt{ec\_growth\_sentiment})
+    \item \textbf{Average Inflation (Y-axis)} = mean(\texttt{PCE\_price\_index}, \texttt{inflation\_sentiment})
+\end{itemize}
+
+\textbf{Note}: Values mix z-scored macro data (mean=0, std=1) with raw sentiment scores, so axes represent relative positioning, not pure z-scores.
+
+\subsection{Regime Positions}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{R1 (Top-Right)}: High Growth / High Inflation
+    \item \textbf{R2 (Bottom-Right)}: High Growth / Low Inflation
+    \item \textbf{R0 (Bottom-Left)}: Low Growth / Low Inflation
+    \item \textbf{R3 (Far Bottom-Left)}: Low Growth / Low Inflation (extreme)
+\end{itemize}
+
+\textbf{Reference Lines}: Dashed lines at 0.0 separate High/Low Growth (vertical) and High/Low Inflation (horizontal).
+
+\section{Regime Summary}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lllll@{}}
+\toprule
+\textbf{Regime} & \textbf{Growth} & \textbf{Inflation} & \textbf{Severity} & \textbf{Interpretation} \\
+\midrule
+R1 & High & High & Moderate & Expansion with Rising Prices \\
+R2 & High & Low & Optimal & Goldilocks Economy \\
+R0 & Low & Low & Moderate & Recession/Deflation \\
+R3 & Low & Low & Extreme & Recession/Deflation (extreme) \\
+\bottomrule
+\end{tabular}
+\caption{Regime Characteristics}
+\end{table}
+
+\textbf{Key}: 3 distinct regime types identified (not 4). R0 and R3 represent different severities of Low Growth/Low Inflation conditions.
+
+\section{Technical Details}
+
+\textbf{Code}: \texttt{regime\_detection\_hmm.py}
+\begin{itemize}[leftmargin=*]
+    \item Feature selection: lines 313-342
+    \item Regime interpretation: lines 740-812 (uses absolute thresholds)
+    \item Data loading: lines 107-156
+\end{itemize}
+
+\textbf{Data Sources}:
+\begin{itemize}[leftmargin=*]
+    \item Macro: \texttt{data/macro\_processed/selection/} (\texttt{gdp\_processed.csv}, \texttt{PCE\_price\_index\_processed.csv})
+    \item Sentiment: \texttt{data/news\_data/sentiment\_scores.csv}
+\end{itemize}
+
+\end{document}
