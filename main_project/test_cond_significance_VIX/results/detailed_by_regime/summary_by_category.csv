@@ -1,0 +1,21 @@
+regime,regime_name,category,top_variable,correlation,abs_correlation,pvalue,rank
+0,Low Growth / Low Inflation,Inflation,PPI_inflation,-0.08392736902509439,0.08392736902509439,0.11109109327664646,11
+0,Low Growth / Low Inflation,Economic Growth,unemployment,0.13184193409959902,0.13184193409959902,0.012090849174896556,3
+0,Low Growth / Low Inflation,Monetary Policy,fedfunds,-0.07256643740832415,0.07256643740832415,0.16850838731478035,14
+0,Low Growth / Low Inflation,Financial Conditions,bofa_highyield_spread,0.5410853150145624,0.5410853150145624,0.0,1
+0,Low Growth / Low Inflation,Market Indicators,3m_yield,-0.10571198881298875,0.10571198881298875,0.04454079422930124,5
+1,High Growth / High Inflation,Inflation,PPI_inflation,0.08214914673243877,0.08214914673243877,0.12810984786728308,13
+1,High Growth / High Inflation,Economic Growth,industrial_production,0.14299964034607962,0.14299964034607962,0.007863189754128586,8
+1,High Growth / High Inflation,Monetary Policy,10y_treasury_const_maturity_rate,-0.18296960382632627,0.18296960382632627,0.0006445226408502425,5
+1,High Growth / High Inflation,Financial Conditions,nat_fin_condition_indx,0.5886594626947436,0.5886594626947436,0.0,1
+1,High Growth / High Inflation,Market Indicators,3m_yield,-0.18680701355282997,0.18680701355282997,0.0004921607411418893,3
+2,High Growth / Low Inflation,Inflation,cpi,0.011594534122042427,0.011594534122042427,0.827591982956351,16
+2,High Growth / Low Inflation,Economic Growth,unemployment,0.1002554324053988,0.1002554324053988,0.05904110723879197,3
+2,High Growth / Low Inflation,Monetary Policy,10y_treasury_const_maturity_rate,-0.09812040656749083,0.09812040656749083,0.06467678853394032,5
+2,High Growth / Low Inflation,Financial Conditions,nat_fin_condition_indx,0.61994366272956,0.61994366272956,0.0,1
+2,High Growth / Low Inflation,Market Indicators,2y_yield,-0.09845891434432034,0.09845891434432034,0.06375483975563379,4
+3,Low Growth / Low Inflation,Inflation,cpi,0.041658655729146045,0.041658655729146045,0.4178681503780768,14
+3,Low Growth / Low Inflation,Economic Growth,unemployment,0.1777254976379383,0.1777254976379383,0.000496856512301358,8
+3,Low Growth / Low Inflation,Monetary Policy,10y_treasury_const_maturity_rate,-0.19279771045828212,0.19279771045828212,0.0001548164717271039,5
+3,Low Growth / Low Inflation,Financial Conditions,nat_fin_condition_indx,0.6937709284160727,0.6937709284160727,0.0,1
+3,Low Growth / Low Inflation,Market Indicators,3m_yield,-0.2323030722695352,0.2323030722695352,4.686351515070797e-06,3
