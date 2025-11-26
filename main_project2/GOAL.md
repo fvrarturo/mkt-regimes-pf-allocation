@@ -348,25 +348,7 @@ You’ll forecast macro variables (and/or ERP) using **2 econometric + 2 ML mode
 
 ---
 
-### 5.1 Econometric Model 1 – ARDL/OLS
-
-**Model**
-For each macro variable M:
-[
-M_{t+h} = \alpha + \sum_{j=0}^{p} \phi_j M_{t-j} + \sum_{k} \psi_k Z_{k,t} + \varepsilon_{t+h}
-]
-
-* Z = other macro indices (and optionally sentiment).
-
-**Outputs**
-
-* Coefficient tables and lag significance.
-* Forecast vs realized plots for each macro variable.
-* RMSE/MAE comparison table across horizons.
-
----
-
-### 5.2 Econometric Model 2 – TVP-VAR
+### 5.1 Econometric Model – TVP-VAR
 
 **Model**
 
@@ -379,13 +361,11 @@ M_{t+h} = \alpha + \sum_{j=0}^{p} \phi_j M_{t-j} + \sum_{k} \psi_k Z_{k,t} + \va
 * RMSE/MAE table vs ARDL.
 
 **Tests**
-
-* Compare forecast errors vs ARDL (Diebold–Mariano).
 * Check whether time-variation significantly improves fit (e.g. via marginal likelihood, if implemented).
 
 ---
 
-### 5.3 ML Model 1 – XGBoost (with & without sentiment)
+### 5.2 ML Model 1 – XGBoost (with & without sentiment)
 
 **Inputs**
 
@@ -409,7 +389,7 @@ M_{t+h} = \alpha + \sum_{j=0}^{p} \phi_j M_{t-j} + \sum_{k} \psi_k Z_{k,t} + \va
 
 ---
 
-### 5.4 ML Model 2 – LSTM (sequence model)
+### 5.3 ML Model 2 – LSTM (sequence model)
 
 **Inputs**
 

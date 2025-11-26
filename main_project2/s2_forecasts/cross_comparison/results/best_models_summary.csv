@@ -1,0 +1,7 @@
+variable,horizon,best_rmse_model,best_rmse_value,best_mae_model,best_mae_value
+Growth,1,TVP-VAR,0.793973975370727,XGBoost (Macro+Sent),0.26309649111973216
+Growth,3,XGBoost (Macro+Sent),1.0829580756488493,XGBoost (Macro+Sent),0.47653555138047804
+Growth,6,LSTM,1.1800200711656073,LSTM,0.5351015364695585
+Inflation,1,XGBoost (Macro+Sent),0.15384710002584082,XGBoost (Macro+Sent),0.11215324873090428
+Inflation,3,XGBoost (Macro+Sent),0.1655936564066601,XGBoost (Macro+Sent),0.12202895201400696
+Inflation,6,XGBoost (Macro+Sent),0.18291398940236095,XGBoost (Macro+Sent),0.1321347589280208

@@ -1,0 +1,2 @@
+annualized_return,annualized_volatility,sharpe_ratio,max_drawdown,calmar_ratio,total_return,n_periods,strategy
+0.0593176178466428,0.07382809063914988,0.8193656741491803,-0.29660015588155064,0.19999186335671282,6.922413609177854,431,Benchmark (50/50)
