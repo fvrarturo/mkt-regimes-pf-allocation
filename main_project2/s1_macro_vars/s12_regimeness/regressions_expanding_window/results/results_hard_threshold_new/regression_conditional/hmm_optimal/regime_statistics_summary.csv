@@ -1,0 +1,5 @@
+regime,regime_name,coefficient_mean,coefficient_std,t_statistic_mean,t_statistic_std,p_value_mean,r_squared_mean,r_squared_std,n_observations_mean
+0,Regime 0,-0.0011,0.0038,-0.221,0.8194,0.5795,0.01,0.0291,98.3333
+1,Regime 1,0.0017,0.0045,0.3376,0.9105,0.4862,0.0148,0.023,74.15
+2,Regime 2,0.0017,0.0049,0.274,0.9692,0.4555,0.0132,0.0177,95.4
+3,Regime 3,0.001,0.0051,0.2047,1.2857,0.4651,0.0167,0.0264,103.2667
