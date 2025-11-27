@@ -238,9 +238,64 @@ def main():
                     print(f"    DM test: stat={dm_result['dm_statistic']:.3f}, "
                           f"p-value={dm_result['p_value']:.4f}")
     
-    # Step 5: Save results
+    # Step 5: Save forecast CSV files
     print("\n" + "="*80)
-    print("Step 5: Saving results")
+    print("Step 5: Saving forecast CSV files")
+    print("="*80)
+    
+    # Create forecast CSV for macro-only model
+    # Get all unique dates from forecasts
+    all_dates = set()
+    for (var_name, h), forecast_series in forecasts_macro.items():
+        all_dates.update(forecast_series.index)
+    
+    if len(all_dates) > 0:
+        all_dates = sorted(all_dates)
+        forecast_macro_df = pd.DataFrame(index=all_dates)
+        forecast_macro_df.index.name = 'date'
+        
+        for var_name in ['growth', 'inflation']:
+            for h in horizons:
+                if (var_name, h) in forecasts_macro:
+                    # Reindex to align with all_dates
+                    forecast_series = forecasts_macro[(var_name, h)]
+                    forecast_macro_df[f'{var_name}_h{h}'] = forecast_series.reindex(all_dates)
+        
+        forecast_macro_csv_path = output_dir / "xgboost" / "forecasts_xgboost_macro.csv"
+        forecast_macro_csv_path.parent.mkdir(parents=True, exist_ok=True)
+        forecast_macro_df.to_csv(forecast_macro_csv_path)
+        print(f"Saved XGBoost (macro-only) forecasts to {forecast_macro_csv_path}")
+        print(f"  Columns: {list(forecast_macro_df.columns)}")
+        print(f"  Rows: {len(forecast_macro_df)}")
+    
+    # Create forecast CSV for macro+sentiment model
+    if forecasts_sentiment:
+        all_dates_sent = set()
+        for (var_name, h), forecast_series in forecasts_sentiment.items():
+            all_dates_sent.update(forecast_series.index)
+        
+        if len(all_dates_sent) > 0:
+            all_dates_sent = sorted(all_dates_sent)
+            forecast_sentiment_df = pd.DataFrame(index=all_dates_sent)
+            forecast_sentiment_df.index.name = 'date'
+            
+            for var_name in ['growth', 'inflation']:
+                for h in horizons:
+                    if (var_name, h) in forecasts_sentiment:
+                        # Reindex to align with all_dates_sent
+                        forecast_series = forecasts_sentiment[(var_name, h)]
+                        forecast_sentiment_df[f'{var_name}_h{h}'] = forecast_series.reindex(all_dates_sent)
+            
+            forecast_sentiment_csv_path = output_dir / "xgboost" / "forecasts_xgboost_sentiment.csv"
+            forecast_sentiment_csv_path.parent.mkdir(parents=True, exist_ok=True)
+            forecast_sentiment_df.to_csv(forecast_sentiment_csv_path)
+            print(f"Saved XGBoost (macro+sentiment) forecasts to {forecast_sentiment_csv_path}")
+            print(f"  Columns: {list(forecast_sentiment_df.columns)}")
+            print(f"  Rows: {len(forecast_sentiment_df)}")
+    
+    # Step 6: Save metrics
+    print("\n" + "="*80)
+    print("Step 6: Saving metrics")
     print("="*80)
     
     # Convert metrics to DataFrames
@@ -250,23 +305,27 @@ def main():
         # Macro-only metrics
         if len(metrics_macro[var]) > 0:
             df_macro = pd.DataFrame(metrics_macro[var])
-            df_macro.to_csv(output_dir / f"{var_name}_metrics_macro.csv", index=False)
+            df_macro.to_csv(output_dir / "xgboost" / f"{var_name}_metrics_macro.csv", index=False)
         
         # Macro+sentiment metrics
         if len(metrics_sentiment[var]) > 0:
             df_sentiment = pd.DataFrame(metrics_sentiment[var])
-            df_sentiment.to_csv(output_dir / f"{var_name}_metrics_sentiment.csv", index=False)
+            df_sentiment.to_csv(output_dir / "xgboost" / f"{var_name}_metrics_sentiment.csv", index=False)
     
     # DM test results
     if dm_results:
         dm_df = pd.DataFrame(list(dm_results.values()))
-        dm_df.to_csv(output_dir / "dm_test_results.csv", index=False)
-        print(f"Saved DM test results to {output_dir / 'dm_test_results.csv'}")
+        dm_df.to_csv(output_dir / "xgboost" / "dm_test_results.csv", index=False)
+        print(f"Saved DM test results to {output_dir / 'xgboost' / 'dm_test_results.csv'}")
     
-    # Step 6: Generate plots
+    # Step 7: Generate plots
     print("\n" + "="*80)
-    print("Step 6: Generating plots")
+    print("Step 7: Generating plots")
     print("="*80)
+    
+    # Create xgboost subdirectory for plots
+    xgboost_output_dir = output_dir / "xgboost"
+    xgboost_output_dir.mkdir(parents=True, exist_ok=True)
     
     for var in variables:
         var_name = variable_names[var]
@@ -278,7 +337,7 @@ def main():
                     feature_importance_macro[(var_name, h)],
                     var_name,
                     h,
-                    output_dir=output_dir
+                    output_dir=xgboost_output_dir
                 )
             
             if (var_name, h) in feature_importance_sentiment:
@@ -286,7 +345,7 @@ def main():
                     feature_importance_sentiment[(var_name, h)],
                     f"{var_name}_sentiment",
                     h,
-                    output_dir=output_dir
+                    output_dir=xgboost_output_dir
                 )
         
         # Forecast comparison plots
@@ -300,7 +359,7 @@ def main():
                     var_name,
                     h,
                     start_date="2008-01-01",
-                    output_dir=output_dir
+                    output_dir=xgboost_output_dir
                 )
         
         # RMSE/MAE comparison plots
@@ -311,21 +370,23 @@ def main():
                 df_macro,
                 df_sentiment,
                 var_name,
-                output_dir=output_dir
+                output_dir=xgboost_output_dir
             )
     
-    # Step 7: Summary
+    # Step 8: Summary
     print("\n" + "="*80)
     print("Analysis Complete!")
     print("="*80)
     print(f"\nOutput files saved to: {output_dir}")
     print("\nGenerated files:")
-    print("  - *_metrics_macro.csv")
-    print("  - *_metrics_sentiment.csv")
-    print("  - dm_test_results.csv")
-    print("  - feature_importance_*.png")
-    print("  - forecast_comparison_*.png")
-    print("  - rmse_mae_comparison_*.png")
+    print("  - xgboost/forecasts_xgboost_macro.csv (forecast values)")
+    print("  - xgboost/forecasts_xgboost_sentiment.csv (forecast values)")
+    print("  - xgboost/*_metrics_macro.csv")
+    print("  - xgboost/*_metrics_sentiment.csv")
+    print("  - xgboost/dm_test_results.csv")
+    print("  - xgboost/feature_importance_*.png")
+    print("  - xgboost/forecast_comparison_*.png")
+    print("  - xgboost/rmse_mae_comparison_*.png")
 
 
 if __name__ == "__main__":

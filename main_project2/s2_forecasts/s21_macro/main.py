@@ -89,9 +89,28 @@ def main():
         horizons=horizons
     )
     
-    # Step 5: Compute forecast metrics
+    # Step 5: Save forecast CSV files
     print("\n" + "="*80)
-    print("Step 5: Computing forecast performance metrics")
+    print("Step 5: Saving forecast CSV files")
+    print("="*80)
+    
+    # Create forecast CSV with columns: date, growth_h1, growth_h3, growth_h6, inflation_h1, inflation_h3, inflation_h6
+    forecast_df = pd.DataFrame(index=forecasts['growth'].index)
+    forecast_df.index.name = 'date'
+    
+    for h in horizons:
+        forecast_df[f'growth_h{h}'] = forecasts['growth'][f'h_{h}']
+        forecast_df[f'inflation_h{h}'] = forecasts['inflation'][f'h_{h}']
+    
+    forecast_csv_path = output_dir / "forecasts_tvpvar.csv"
+    forecast_df.to_csv(forecast_csv_path)
+    print(f"Saved TVP-VAR forecasts to {forecast_csv_path}")
+    print(f"  Columns: {list(forecast_df.columns)}")
+    print(f"  Rows: {len(forecast_df)}")
+    
+    # Step 6: Compute forecast metrics
+    print("\n" + "="*80)
+    print("Step 6: Computing forecast performance metrics")
     print("="*80)
     
     # Extract actual values
@@ -127,9 +146,9 @@ def main():
     ], ignore_index=True)
     combined_metrics.to_csv(output_dir / "forecast_performance_table.csv", index=False)
     
-    # Step 6: Compare with static VAR (optional)
+    # Step 7: Compare with static VAR (optional)
     print("\n" + "="*80)
-    print("Step 6: Comparing with static VAR")
+    print("Step 7: Comparing with static VAR")
     print("="*80)
     
     try:
@@ -182,9 +201,9 @@ def main():
         print(f"Warning: Could not compare with static VAR: {e}")
         static_forecasts = None
     
-    # Step 7: Generate plots
+    # Step 8: Generate plots
     print("\n" + "="*80)
-    print("Step 7: Generating plots")
+    print("Step 8: Generating plots")
     print("="*80)
     
     # Forecast vs realized plots (starting from 2008-2009)
@@ -284,12 +303,13 @@ def main():
     
     # Note: Forecast comparison plots removed per user request
     
-    # Step 8: Summary
+    # Step 9: Summary
     print("\n" + "="*80)
     print("Analysis Complete!")
     print("="*80)
     print(f"\nOutput files saved to: {output_dir}")
     print("\nGenerated files:")
+    print("  - forecasts_tvpvar.csv (forecast values)")
     print("  - forecast_performance_table.csv")
     print("  - growth_forecast_metrics.csv")
     print("  - inflation_forecast_metrics.csv")

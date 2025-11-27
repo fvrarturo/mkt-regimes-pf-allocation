@@ -265,22 +265,67 @@ def main():
         
         # Plot learning curves
         if h in forecaster.history:
-            plot_learning_curves(forecaster.history[h], h, output_dir=output_dir)
+            lstm_output_dir = output_dir / "lstm"
+            lstm_output_dir.mkdir(parents=True, exist_ok=True)
+            plot_learning_curves(forecaster.history[h], h, output_dir=lstm_output_dir)
     
-    # Step 5: Save results
+    # Step 5: Save forecast CSV files
     print("\n" + "="*80)
-    print("Step 5: Saving results")
+    print("Step 5: Saving forecast CSV files")
+    print("="*80)
+    
+    # Get test dates (forecast origin dates)
+    test_start_idx = len(macro_df) - len(X_test) - sequence_length
+    test_dates = macro_df.index[test_start_idx + sequence_length:]
+    
+    # Create forecast CSV with columns: date, growth_h1, growth_h3, growth_h6, inflation_h1, inflation_h3, inflation_h6
+    forecast_df = pd.DataFrame(index=test_dates[:len(X_test)])
+    forecast_df.index.name = 'date'
+    
+    for h in horizons:
+        # Get forecasts for this horizon
+        forecasts_h = forecasts[h]  # Shape: (n_samples, 2) where 2 = [growth, inflation]
+        
+        # Extract growth and inflation forecasts
+        growth_idx = target_names.index('growth_factor')
+        inflation_idx = target_names.index('inflation_factor')
+        
+        # Inverse transform forecasts
+        growth_scaled = forecasts_h[:, growth_idx]
+        inflation_scaled = forecasts_h[:, inflation_idx]
+        
+        growth_inv = target_scalers['growth_factor'].inverse_transform(
+            growth_scaled.reshape(-1, 1)
+        ).ravel()
+        inflation_inv = target_scalers['inflation_factor'].inverse_transform(
+            inflation_scaled.reshape(-1, 1)
+        ).ravel()
+        
+        # Store in DataFrame
+        forecast_df[f'growth_h{h}'] = growth_inv[:len(forecast_df)]
+        forecast_df[f'inflation_h{h}'] = inflation_inv[:len(forecast_df)]
+    
+    forecast_csv_path = output_dir / "lstm" / "forecasts_lstm.csv"
+    forecast_csv_path.parent.mkdir(parents=True, exist_ok=True)
+    forecast_df.to_csv(forecast_csv_path)
+    print(f"Saved LSTM forecasts to {forecast_csv_path}")
+    print(f"  Columns: {list(forecast_df.columns)}")
+    print(f"  Rows: {len(forecast_df)}")
+    
+    # Step 6: Save metrics
+    print("\n" + "="*80)
+    print("Step 6: Saving metrics")
     print("="*80)
     
     for var_name in target_names:
         if var_name in metrics:
             df_metrics = pd.DataFrame(metrics[var_name])
-            df_metrics.to_csv(output_dir / f"{var_name}_metrics_lstm.csv", index=False)
-            print(f"Saved {var_name} metrics to {output_dir / f'{var_name}_metrics_lstm.csv'}")
+            df_metrics.to_csv(output_dir / "lstm" / f"{var_name}_metrics_lstm.csv", index=False)
+            print(f"Saved {var_name} metrics to {output_dir / 'lstm' / f'{var_name}_metrics_lstm.csv'}")
     
-    # Step 6: Generate plots
+    # Step 7: Generate plots
     print("\n" + "="*80)
-    print("Step 6: Generating plots")
+    print("Step 7: Generating plots")
     print("="*80)
     
     # Prepare forecast and actual dictionaries for plotting
@@ -330,23 +375,26 @@ def main():
         actuals_plot[var_name] = actual_dict
     
     # Plot forecasts vs realized
+    lstm_output_dir = output_dir / "lstm"
+    lstm_output_dir.mkdir(parents=True, exist_ok=True)
     plot_forecast_vs_realized_lstm(
         forecasts_plot,
         actuals_plot,
         horizons=horizons,
         start_date="2008-01-01",
-        output_dir=output_dir
+        output_dir=lstm_output_dir
     )
     
-    # Step 7: Summary
+    # Step 8: Summary
     print("\n" + "="*80)
     print("Analysis Complete!")
     print("="*80)
     print(f"\nOutput files saved to: {output_dir}")
     print("\nGenerated files:")
-    print("  - *_metrics_lstm.csv")
-    print("  - learning_curve_lstm_*.png")
-    print("  - forecast_vs_realized_lstm_*.png")
+    print("  - lstm/forecasts_lstm.csv (forecast values)")
+    print("  - lstm/*_metrics_lstm.csv")
+    print("  - lstm/learning_curve_lstm_*.png")
+    print("  - lstm/forecast_vs_realized_lstm_*.png")
 
 
 if __name__ == "__main__":
