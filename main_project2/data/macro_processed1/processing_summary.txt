@@ -1,0 +1,142 @@
+================================================================================
+MACRO DATA ENGINEERING SUMMARY REPORT
+================================================================================
+
+EC_GROWTH:
+----------------------------------------
+  export_price_index:
+    Observations: 462
+    Date range: 1983-09-01 00:00:00 to 2025-08-01 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+  gdp:
+    Observations: 314
+    Date range: 1947-01-01 00:00:00 to 2025-04-01 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+  import_price_index:
+    Observations: 466
+    Date range: 1982-09-01 00:00:00 to 2025-08-01 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+  industrial_production:
+    Observations: 1280
+    Date range: 1919-01-01 00:00:00 to 2025-08-01 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+  real_gdp:
+    Observations: 314
+    Date range: 1947-01-01 00:00:00 to 2025-04-01 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+  retail_sales:
+    Observations: 404
+    Date range: 1992-01-01 00:00:00 to 2025-08-01 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+  tot_business_inventories:
+    Observations: 403
+    Date range: 1992-01-01 00:00:00 to 2025-07-01 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+  unemployment:
+    Observations: 932
+    Date range: 1948-01-01 00:00:00 to 2025-08-01 00:00:00
+    Columns: date, value, first_diff, pct_change_mom, pct_change_yoy, zscore_value, zscore_first_diff, zscore_pct_change_mom, minmax_value, minmax_first_diff, minmax_pct_change_mom
+
+INFLATION:
+----------------------------------------
+  PCE_price_index:
+    Observations: 800
+    Date range: 1959-01-01 00:00:00 to 2025-08-01 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+  PPI_inflation:
+    Observations: 1352
+    Date range: 1913-01-01 00:00:00 to 2025-08-01 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+  cpi:
+    Observations: 945
+    Date range: 1947-01-01 00:00:00 to 2025-09-01 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+MKT_VOL:
+----------------------------------------
+  10y_2y_spread:
+    Observations: 12364
+    Date range: 1976-06-01 00:00:00 to 2025-11-19 00:00:00
+    Columns: date, value, first_diff, pct_change_mom, zscore_value, zscore_first_diff, minmax_value, minmax_first_diff, minmax_pct_change_mom
+
+  3month_vol_index_sp500:
+    Observations: 4519
+    Date range: 2007-12-04 00:00:00 to 2025-11-18 00:00:00
+    Columns: date, value, log_value, log_diff, log_pct_change, pct_change_mom, zscore_value, zscore_log_value, zscore_pct_change_mom, minmax_value, minmax_log_value, minmax_pct_change_mom
+
+  nasdaq_vol_indx:
+    Observations: 6237
+    Date range: 2001-02-02 00:00:00 to 2025-11-18 00:00:00
+    Columns: date, value, log_value, log_diff, log_pct_change, pct_change_mom, zscore_value, zscore_log_value, zscore_pct_change_mom, minmax_value, minmax_log_value, minmax_pct_change_mom
+
+  nat_fin_condition_indx:
+    Observations: 2863
+    Date range: 1971-01-08 00:00:00 to 2025-11-14 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy
+
+  vix:
+    Observations: 8827
+    Date range: 1990-12-03 00:00:00 to 2025-11-14 00:00:00
+    Columns: date, value, log_value, log_diff, log_pct_change, pct_change_mom, zscore_value, zscore_log_value, zscore_pct_change_mom, minmax_value, minmax_log_value, minmax_pct_change_mom
+
+MON_POLICY:
+----------------------------------------
+  10y_treasury_const_maturity_rate:
+    Observations: 15955
+    Date range: 1962-01-02 00:00:00 to 2025-11-18 00:00:00
+    Columns: date, value, first_diff, pct_change_mom, pct_change_yoy, zscore_value, zscore_first_diff, zscore_pct_change_mom, minmax_value, minmax_first_diff, minmax_pct_change_mom
+
+  fed_reserve_discount_rate:
+    Observations: 860
+    Date range: 1950-01-01 00:00:00 to 2021-08-01 00:00:00
+    Columns: date, value, first_diff, pct_change_mom, pct_change_yoy, zscore_value, zscore_first_diff, zscore_pct_change_mom, minmax_value, minmax_first_diff, minmax_pct_change_mom
+
+  fedfunds:
+    Observations: 430
+    Date range: 1990-01-01 00:00:00 to 2025-10-01 00:00:00
+    Columns: date, value, first_diff, pct_change_mom, pct_change_yoy, zscore_value, zscore_first_diff, zscore_pct_change_mom, minmax_value, minmax_first_diff, minmax_pct_change_mom
+
+  m2_real_money_supply:
+    Observations: 801
+    Date range: 1959-01-01 00:00:00 to 2025-09-01 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+OTHER:
+----------------------------------------
+  10y_yield:
+    Observations: 8974
+    Date range: 1990-01-02 00:00:00 to 2025-11-14 00:00:00
+    Columns: date, value, first_diff, pct_change_mom, pct_change_yoy, zscore_value, zscore_first_diff, zscore_pct_change_mom, minmax_value, minmax_first_diff, minmax_pct_change_mom
+
+  2y_yield:
+    Observations: 8974
+    Date range: 1990-01-02 00:00:00 to 2025-11-14 00:00:00
+    Columns: date, value, first_diff, pct_change_mom, pct_change_yoy, zscore_value, zscore_first_diff, zscore_pct_change_mom, minmax_value, minmax_first_diff, minmax_pct_change_mom
+
+  3m_yield:
+    Observations: 8974
+    Date range: 1990-01-02 00:00:00 to 2025-11-14 00:00:00
+    Columns: date, value, first_diff, pct_change_mom, pct_change_yoy, zscore_value, zscore_first_diff, minmax_value, minmax_first_diff, minmax_pct_change_mom
+
+  bofa_highyield_spread:
+    Observations: 7539
+    Date range: 1996-12-31 00:00:00 to 2025-11-14 00:00:00
+    Columns: date, value, first_diff, pct_change_mom, zscore_value, zscore_first_diff, zscore_pct_change_mom, minmax_value, minmax_first_diff, minmax_pct_change_mom
+
+  sp500:
+    Observations: 1176
+    Date range: 1927-12-31 00:00:00 to 2025-11-14 00:00:00
+    Columns: date, value, pct_change_mom, pct_change_yoy, log_value, log_diff, log_pct_change, zscore_value, zscore_pct_change_mom, zscore_pct_change_yoy, zscore_log_value, minmax_value, minmax_pct_change_mom, minmax_pct_change_yoy, minmax_log_value
+
+Total variables processed: 25
+
+================================================================================
