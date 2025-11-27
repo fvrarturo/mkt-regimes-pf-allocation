@@ -1,0 +1,287 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\geometry{margin=1in}
+
+\title{\textbf{Main Project 2: Simple Overview}\\
+Code Organization, Models, and Data}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Project Overview}
+
+This project analyzes macroeconomic regimes, forecasts economic variables, and builds asset allocation strategies. The code is organized into three main sections, each with a clear purpose.
+
+\section{Data Used}
+
+\subsection{Market Data}
+\begin{itemize}
+    \item \textbf{S\&P 500 Returns}: Monthly stock returns (1990-2025, 431 months)
+    \item \textbf{3-Month Treasury Yield}: Converted to monthly bond returns
+    \item \textbf{Equity Risk Premium (ERP)}: Stock return minus bond return
+\end{itemize}
+
+\subsection{Macro Variables}
+Four standardized indices created from multiple economic indicators:
+\begin{itemize}
+    \item \textbf{Growth Factor}: Economic growth indicators
+    \item \textbf{Inflation Factor}: Price level indicators  
+    \item \textbf{Monetary Policy Factor}: Interest rates and policy measures
+    \item \textbf{Market Volatility Factor}: Market volatility measures
+\end{itemize}
+
+\subsection{Sentiment Data}
+Four sentiment scores extracted from news articles using AI:
+\begin{itemize}
+    \item Growth sentiment, Inflation sentiment, Policy sentiment, Volatility sentiment
+\end{itemize}
+
+\section{Code Organization}
+
+The project follows a \textbf{modular structure} where each section has:
+\begin{itemize}
+    \item \texttt{preprocessing.py} - Loads and prepares data
+    \item \texttt{model.py} or \texttt{*\_model.py} - Implements the main model
+    \item \texttt{stats.py} - Statistical analysis and tests
+    \item \texttt{plotting.py} - Creates visualizations
+    \item \texttt{main.py} - Runs everything together
+\end{itemize}
+
+\section{Section 1: Macro Variable Analysis (s1\_macro\_vars)}
+
+\subsection{s11\_full\_sample: Basic Regressions}
+\textbf{What it does}: Tests how macro variables predict future stock returns (ERP).
+
+\textbf{Model}: Simple linear regression
+\[
+\text{ERP}_{t+h} = \alpha + \beta_1 \text{Growth}_t + \beta_2 \text{Inflation}_t + \beta_3 \text{Policy}_t + \beta_4 \text{Volatility}_t + \varepsilon
+\]
+
+\textbf{Horizons}: 1, 3, 6, 12, 24 months ahead
+
+\textbf{Outputs}: Which variables matter most, how strong the relationships are
+
+\subsection{s12\_regimeness: Regime Detection}
+\textbf{What it does}: Identifies different economic "regimes" or states.
+
+\textbf{Three approaches}:
+\begin{enumerate}
+    \item \textbf{2×2 Simple Regimes}: Divides economy into 4 quadrants based on Growth (High/Low) × Inflation (High/Low)
+    \begin{itemize}
+        \item Goldilocks (High Growth, Low Inflation)
+        \item Overheating (High Growth, High Inflation)
+        \item Stagflation (Low Growth, High Inflation)
+        \item Slowdown (Low Growth, Low Inflation)
+    \end{itemize}
+    
+    \item \textbf{HMM (Hidden Markov Model)}: Uses statistical model to find regimes automatically
+    \begin{itemize}
+        \item Best model uses Growth + Policy (2 variables, 4 regimes)
+        \item Provides probabilities for each regime at each time point
+    \end{itemize}
+    
+    \item \textbf{Conditional Regressions}: Tests if macro-ERP relationships differ across regimes
+\end{enumerate}
+
+\subsection{s13\_extremeness: Extreme States Detection}
+\textbf{What it does}: Identifies periods when macro variables are at extreme levels.
+
+\textbf{Two methods}:
+\begin{enumerate}
+    \item \textbf{Isolation Forest}: Machine learning method to detect anomalies
+    \item \textbf{PCA Distance}: Measures distance from "normal" in statistical space
+\end{enumerate}
+
+\textbf{Key finding}: Extreme macro states have 2× higher volatility in stock returns, making them useful for risk management.
+
+\section{Section 2: Forecasting (s2\_forecasts)}
+
+\textbf{Goal}: Forecast GDP growth and inflation 1, 3, and 6 months ahead.
+
+\subsection{s21\_macro: TVP-VAR Model}
+\textbf{What it is}: Time-Varying Parameter Vector Autoregression
+
+\textbf{How it works}:
+\begin{itemize}
+    \item Uses all 4 macro variables together
+    \item Allows relationships to change over time (time-varying)
+    \item Implemented as rolling window VAR (practical approximation)
+\end{itemize}
+
+\textbf{Outputs}: Forecasts, time-varying coefficients, impulse response functions
+
+\subsection{s22\_ml\_based: Machine Learning Models}
+
+\subsubsection{XGBoost}
+\textbf{What it is}: Gradient boosting machine learning model
+
+\textbf{Two versions}:
+\begin{itemize}
+    \item \textbf{Macro-only}: Uses only macro variables
+    \item \textbf{Macro + Sentiment}: Adds sentiment scores
+\end{itemize}
+
+\textbf{Features}: Includes ARIMA-like features (lags, differences, trends, volatility) to capture time series patterns
+
+\subsubsection{LSTM}
+\textbf{What it is}: Long Short-Term Memory neural network
+
+\textbf{How it works}:
+\begin{itemize}
+    \item Uses sequences of past 12-24 months
+    \item Learns patterns in the sequence
+    \item Hybrid approach: Combines LSTM predictions with autoregressive terms
+\end{itemize}
+
+\textbf{Special features}: Custom loss function to prevent "flat" forecasts
+
+\subsection{cross\_comparison: Model Comparison}
+\textbf{What it does}: Compares all forecasting models
+
+\textbf{Metrics}: RMSE, MAE for each model, variable, and horizon
+
+\textbf{Outputs}: Performance tables, rankings, improvement charts
+
+\section{Section 3: Asset Allocation Strategies (s3\_evaluation)}
+
+\textbf{Goal}: Use regimes, extremeness, and forecasts to decide how much to invest in stocks vs bonds.
+
+\subsection{Benchmark}
+50/50 static allocation (50\% stocks, 50\% bonds), rebalanced monthly
+
+\subsection{Strategy 1: Regime-Based}
+\textbf{Idea}: Adjust stock allocation based on economic regime
+
+\textbf{How}: 
+\begin{itemize}
+    \item Expansion regime → 70\% stocks
+    \item Neutral regime → 50\% stocks  
+    \item Risk-off regime → 30\% stocks
+    \item Crisis regime → 20\% stocks
+\end{itemize}
+
+\textbf{Weight calculation}: Weighted average based on regime probabilities
+
+\subsection{Strategy 2: Extremeness-Based}
+\textbf{Idea}: Reduce stock allocation when macro conditions are extreme
+
+\textbf{How}:
+\begin{itemize}
+    \item If extremeness > 90th percentile → 20\% stocks (risk-off)
+    \item Otherwise → 60\% stocks (normal)
+\end{itemize}
+
+\textbf{Variant}: Combine with regime strategy for better performance
+
+\subsection{Strategy 3: Forecast-Based}
+\textbf{Idea}: Use forecasted stock returns (ERP) to adjust allocation
+
+\textbf{Three methods}:
+\begin{enumerate}
+    \item \textbf{Threshold}: If forecast > 0 → 70\% stocks, else 30\%
+    \item \textbf{Linear}: Map forecast to weight between 20\%-80\%
+    \item \textbf{Regime-Conditioned}: Only act if forecast AND regime agree
+\end{enumerate}
+
+\textbf{Models tested}: TVP-VAR, XGBoost (macro), XGBoost (sentiment), LSTM
+
+\subsection{Strategy 4: Ensemble}
+\textbf{Idea}: Combine all signals (forecast + regime + extremeness)
+
+\textbf{Rule}: 
+\begin{itemize}
+    \item Low weight if forecast < 0 OR extremeness high
+    \item High weight if forecast > 0 AND regime is expansion
+    \item Neutral otherwise
+\end{itemize}
+
+\subsection{Performance Metrics}
+Each strategy evaluated on:
+\begin{itemize}
+    \item Annualized return
+    \item Volatility (risk)
+    \item Sharpe ratio (return per unit risk)
+    \item Maximum drawdown (worst loss)
+    \item Hit rate (prediction accuracy)
+\end{itemize}
+
+\section{Key Results Summary}
+
+\subsection{Regime Detection}
+\begin{itemize}
+    \item HMM finds 4 meaningful economic regimes
+    \item Best model uses Growth + Policy (2 variables)
+    \item Regimes show different stock return patterns
+\end{itemize}
+
+\subsection{Extremeness}
+\begin{itemize}
+    \item Extreme macro states → 2× higher stock return volatility
+    \item Useful for risk management (reducing exposure)
+\end{itemize}
+
+\subsection{Forecasting}
+\begin{itemize}
+    \item TVP-VAR performs well, especially for inflation
+    \item Adding sentiment helps XGBoost for some horizons
+    \item LSTM competitive with hybrid AR-LSTM approach
+    \item ARIMA features improve both XGBoost and LSTM
+\end{itemize}
+
+\subsection{Strategies}
+\begin{itemize}
+    \item Regime-based: Smooth allocation adjustments
+    \item Extremeness-based: Effective crash avoidance
+    \item Forecast-based: Performance varies by model
+    \item Ensemble: Typically best overall performance
+\end{itemize}
+
+\section{File Structure}
+
+\begin{verbatim}
+main_project2/
+├── data/                    # All data files
+│   ├── macro_final/        # Macro indices
+│   ├── macro_processed/    # Market data (S&P500, bonds)
+│   └── news_data/         # Sentiment scores
+│
+├── s1_macro_vars/         # Section 1: Macro analysis
+│   ├── s11_full_sample/   # Basic regressions
+│   ├── s12_regimeness/    # Regime detection
+│   └── s13_extremeness/   # Extremeness analysis
+│
+├── s2_forecasts/          # Section 2: Forecasting
+│   ├── s21_macro/         # TVP-VAR model
+│   ├── s22_ml_based/      # XGBoost & LSTM
+│   └── cross_comparison/  # Model comparison
+│
+└── s3_evaluation/         # Section 3: Strategies
+    ├── strategy_regime.py
+    ├── strategy_extremeness.py
+    ├── strategy_forecast.py
+    ├── strategy_ensemble.py
+    └── main.py
+\end{verbatim}
+
+\section{How to Run}
+
+Each section can be run independently:
+
+\begin{itemize}
+    \item \textbf{Section 1}: Run \texttt{main.py} in each subdirectory
+    \item \textbf{Section 2}: Run \texttt{main.py} in s21\_macro, s22\_ml\_based, and cross\_comparison
+    \item \textbf{Section 3}: Run \texttt{main.py} in s3\_evaluation
+\end{itemize}
+
+All results are saved in \texttt{results/} directories within each section.
+
+\end{document}
+
