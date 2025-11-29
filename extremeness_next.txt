@@ -1,0 +1,5 @@
+Read s12_regimeness and s13_extremeness directories.
+
+You'll see I want to do the regression part of extremeness given the chosen regimes.
+
+Choose the correct csv file of regimes from regimeness and add on it extremeness data to run the regression as explained in @goals.md in conditional_extremeness

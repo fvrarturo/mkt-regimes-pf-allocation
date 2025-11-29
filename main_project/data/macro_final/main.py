@@ -3,10 +3,10 @@
 Main script to create final macro.csv file
 
 This script:
-1. Creates inflation factor (PC1 from CPI, PCE, PPI)
-2. Creates growth factor (PC1 from IP, Retail Sales, Unemployment, GDP)
-3. Extracts monetary policy factor (10y-2y spread)
-4. Extracts market volatility factor (NFCI)
+1. Creates inflation factor (PCE)
+2. Creates growth factor (monthly-interpolated GDP)
+3. Extracts monetary policy factor (Fed Funds Rate)
+4. Extracts market volatility factor (VIX)
 5. Merges all factors into a single monthly dataset (1989-2025)
 6. Saves to final_macro.csv
 """
@@ -20,10 +20,10 @@ from datetime import datetime
 # Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-from inflation import create_inflation_factor
-from ec_growth import create_growth_factor
-from mon_policy import create_monetary_policy_factor
-from mkt_volatility import create_market_volatility_factor
+from src.inflation import create_inflation_factor
+from src.ec_growth import create_growth_factor
+from src.mon_policy import create_monetary_policy_factor
+from src.mkt_volatility import create_market_volatility_factor
 
 
 def create_final_macro(
@@ -50,44 +50,42 @@ def create_final_macro(
     print(f"Date range: {start_date} to {end_date}\n")
     
     # 1. Create inflation factor
-    print("1. Creating inflation factor (PC1 from CPI, PCE, PPI)...")
+    print("1. Creating inflation factor (PCE)...")
     try:
         inflation_df = create_inflation_factor(data_dir, start_date, end_date)
         print(f"   ✓ Created {len(inflation_df)} observations")
-        print(f"   ✓ PCA explained variance: {inflation_df.attrs.get('pca_explained_variance_ratio', 0):.4f}")
         print(f"   ✓ Date range: {inflation_df['date'].min()} to {inflation_df['date'].max()}\n")
     except Exception as e:
         print(f"   ✗ Error: {e}\n")
         raise
     
     # 2. Create growth factor
-    print("2. Creating growth factor (PC1 from IP, Retail Sales, Unemployment, GDP)...")
+    print("2. Creating growth factor (monthly-interpolated GDP)...")
     try:
         growth_df = create_growth_factor(data_dir, start_date, end_date)
         print(f"   ✓ Created {len(growth_df)} observations")
-        print(f"   ✓ PCA explained variance: {growth_df.attrs.get('pca_explained_variance_ratio', 0):.4f}")
         print(f"   ✓ Date range: {growth_df['date'].min()} to {growth_df['date'].max()}\n")
     except Exception as e:
         print(f"   ✗ Error: {e}\n")
         raise
     
     # 3. Create monetary policy factor
-    print("3. Extracting monetary policy factor (10y-2y yield curve slope)...")
+    print("3. Extracting monetary policy factor (Federal Funds Rate)...")
     try:
         monetary_df = create_monetary_policy_factor(data_dir, start_date, end_date)
         print(f"   ✓ Created {len(monetary_df)} observations")
-        print(f"   ✓ Method: {monetary_df.attrs.get('method', 'N/A')}")
+        print(f"   ✓ Source/Method: {monetary_df.attrs.get('method', 'N/A')}")
         print(f"   ✓ Date range: {monetary_df['date'].min()} to {monetary_df['date'].max()}\n")
     except Exception as e:
         print(f"   ✗ Error: {e}\n")
         raise
     
     # 4. Create market volatility factor
-    print("4. Extracting market volatility factor (NFCI)...")
+    print("4. Extracting market volatility factor (VIX)...")
     try:
         volatility_df = create_market_volatility_factor(data_dir, start_date, end_date)
         print(f"   ✓ Created {len(volatility_df)} observations")
-        print(f"   ✓ Method: {volatility_df.attrs.get('method', 'N/A')}")
+        print(f"   ✓ Source/Method: {volatility_df.attrs.get('method', 'N/A')}")
         print(f"   ✓ Date range: {volatility_df['date'].min()} to {volatility_df['date'].max()}\n")
     except Exception as e:
         print(f"   ✗ Error: {e}\n")
@@ -131,10 +129,8 @@ def create_final_macro(
     print(final_df.describe())
     print("\n")
     
-    # Store metadata
+    # Store metadata (removed PCA-related keys)
     final_df.attrs = {
-        'inflation_pca_explained_variance': inflation_df.attrs.get('pca_explained_variance_ratio', 0),
-        'growth_pca_explained_variance': growth_df.attrs.get('pca_explained_variance_ratio', 0),
         'monetary_policy_method': monetary_df.attrs.get('method', 'N/A'),
         'market_volatility_method': volatility_df.attrs.get('method', 'N/A'),
         'n_observations': len(final_df),
