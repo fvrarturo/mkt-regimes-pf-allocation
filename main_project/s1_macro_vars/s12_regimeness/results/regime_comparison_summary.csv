@@ -1,0 +1,3 @@
+model,n_regimes,best_regime,best_regime_erp,best_regime_share,worst_regime,worst_regime_erp,erp_spread,regimes_with_positive_erp,regimes_with_negative_erp,significant_pairs,significant_pairs_negative
+2×2 Quadrants,4,Slowdown,0.0076240989446107,22.897196261682243,Stagflation,0.0015313024182566,0.0060927965263541,4,0,0,0
+HMM (Growth + Policy),4,Low Growth / Low Inflation,0.1267290173024282,0.233644859813084,Low Growth / Low Inflation,-0.0025100951417545,0.12923911244418268,3,1,4,3

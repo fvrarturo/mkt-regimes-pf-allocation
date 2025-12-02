@@ -12,15 +12,24 @@ import sys
 import pandas as pd
 from pathlib import Path
 
+# Add Section 1 root to sys.path for shared helpers
+SCRIPT_DIR = Path(__file__).resolve().parent
+SECTION_DIR = SCRIPT_DIR.parents[2]
+if str(SECTION_DIR) not in sys.path:
+    sys.path.insert(0, str(SECTION_DIR))
+
+from path_utils import get_project_root
+
 # Add current directory and subdirectories to path
-base_path = Path(__file__).parent
+base_path = SCRIPT_DIR
 regression_path = base_path / 'regression'
 regimes_path = base_path / 'regimes'
 
 # Add paths in specific order to avoid conflicts
-sys.path.insert(0, str(regression_path))
-sys.path.insert(0, str(regimes_path))
-sys.path.insert(0, str(base_path))
+for path in (regression_path, regimes_path, base_path):
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
 # Import from specific modules using full paths to avoid conflicts
 import importlib.util
@@ -70,8 +79,8 @@ def main():
     print("For each time t, regimes are detected using only data from start to t.\n")
     
     # Set up paths
-    script_dir = Path(__file__).parent.absolute()
-    base_dir = script_dir.parent.parent.parent  # Points to main_project2
+    script_dir = SCRIPT_DIR
+    base_dir = get_project_root(__file__)
     
     # Run analysis for Hard Threshold method only (Mahalanobis results already in results_mahalanobis/)
     analyses = [
@@ -219,4 +228,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

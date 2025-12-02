@@ -32,6 +32,29 @@ from plotting import (
     plot_aggregated_irfs
 )
 
+TEST_START_DATE = pd.Timestamp("2000-01-31")
+
+
+def compute_random_walk_forecasts(
+    series: pd.Series,
+    test_dates: pd.DatetimeIndex,
+    horizons: list
+) -> pd.DataFrame:
+    """
+    Produce naive random-walk (last observation carried forward) forecasts.
+    """
+    forecast_df = pd.DataFrame(index=test_dates, columns=[f'h_{h}' for h in horizons], dtype=float)
+    
+    for forecast_date in test_dates:
+        history = series.loc[:forecast_date]
+        if history.empty:
+            continue
+        last_value = history.iloc[-1]
+        for h in horizons:
+            forecast_df.at[forecast_date, f'h_{h}'] = last_value
+    
+    return forecast_df
+
 
 def main():
     """Main execution function."""
@@ -61,7 +84,10 @@ def main():
     print("Step 2: Preparing forecast data")
     print("="*80)
     train_data, test_data, full_data, test_dates = prepare_forecast_data(
-        macro_df, train_split=train_split, horizons=horizons
+        macro_df,
+        train_split=train_split,
+        horizons=horizons,
+        test_start_date=TEST_START_DATE
     )
     
     # Step 3: Select lag order
@@ -201,6 +227,37 @@ def main():
         print(f"Warning: Could not compare with static VAR: {e}")
         static_forecasts = None
     
+    # Step 8: Very simple econometric benchmark (random walk)
+    print("\n" + "="*80)
+    print("Step 8: Random Walk (Naive) Benchmark")
+    print("="*80)
+    
+    naive_forecasts = {
+        'growth': compute_random_walk_forecasts(growth_actuals, test_dates, horizons),
+        'inflation': compute_random_walk_forecasts(inflation_actuals, test_dates, horizons)
+    }
+    
+    growth_naive_metrics = compute_forecast_metrics(
+        naive_forecasts['growth'],
+        growth_actuals,
+        horizons=horizons
+    )
+    inflation_naive_metrics = compute_forecast_metrics(
+        naive_forecasts['inflation'],
+        inflation_actuals,
+        horizons=horizons
+    )
+    
+    growth_naive_metrics.to_csv(output_dir / "growth_naive_random_walk_metrics.csv", index=False)
+    inflation_naive_metrics.to_csv(output_dir / "inflation_naive_random_walk_metrics.csv", index=False)
+    
+    print("\nNaive random-walk benchmark (growth):")
+    if not growth_naive_metrics.empty:
+        print(growth_naive_metrics.to_string(index=False))
+    print("\nNaive random-walk benchmark (inflation):")
+    if not inflation_naive_metrics.empty:
+        print(inflation_naive_metrics.to_string(index=False))
+    
     # Step 8: Generate plots
     print("\n" + "="*80)
     print("Step 8: Generating plots")
@@ -320,8 +377,9 @@ def main():
     if static_forecasts is not None:
         print("  - *_tvpvar_vs_static_comparison.csv")
         print("  - forecast_comparison_*.png")
+    print("  - growth_naive_random_walk_metrics.csv")
+    print("  - inflation_naive_random_walk_metrics.csv")
 
 
 if __name__ == "__main__":
     main()
-

@@ -19,11 +19,18 @@ from datetime import datetime
 from scipy import stats
 from typing import Dict, Tuple
 
-# Add current directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
+# Add current directory and shared utilities to sys.path
+SCRIPT_DIR = Path(__file__).resolve().parent
+REGIMES_DIR = SCRIPT_DIR.parent
+SECTION_DIR = SCRIPT_DIR.parents[2]  # s1_macro_vars
+for path in (SCRIPT_DIR, REGIMES_DIR, SECTION_DIR):
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
 from regime_definitions import RegimeDefinitions
 from plotting import RegimePlotter
+from path_utils import get_data_dir
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -395,14 +402,8 @@ class TwoByTwoRegimeAnalyzer:
 
 def main():
     """Main execution function."""
-    # Set up paths
-    # Script is at: main_project2/s1_macro_vars/s12_regimeness/2x2_regimes/main.py
-    # Data is at: main_project2/data/
-    script_dir = Path(__file__).parent.absolute()
-    # Path structure: main_project2/s1_macro_vars/s12_regimeness/2x2_regimes/
-    # Go up 4 levels: 2x2_regimes -> s12_regimeness -> s1_macro_vars -> main_project2
-    main_project2_dir = script_dir.parent.parent.parent.parent / 'main_project2'
-    data_dir = main_project2_dir / 'data'
+    script_dir = Path(__file__).resolve().parent
+    data_dir = get_data_dir(__file__)
     output_dir = script_dir / 'results'
     
     # Verify data directory exists
@@ -422,4 +423,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

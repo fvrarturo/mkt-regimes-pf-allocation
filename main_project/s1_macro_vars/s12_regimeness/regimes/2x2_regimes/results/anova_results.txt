@@ -1,9 +1,9 @@
 ANOVA F-Test for ERP Across Regimes
 ==================================================
 
-F-statistic: 3.2294
-P-value: 0.022381
-Significant at 5% level: True
+F-statistic: 0.4703
+P-value: 0.703157
+Significant at 5% level: False
 
 Number of regimes tested: 4
-Total observations: 431
+Total observations: 428

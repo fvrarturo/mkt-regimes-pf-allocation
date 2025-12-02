@@ -9,6 +9,8 @@ import numpy as np
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 
+BASE_DIR = Path(__file__).resolve().parents[3]
+
 
 def load_data():
     """
@@ -19,20 +21,18 @@ def load_data():
     tuple
         (erp_df, macro_df, sentiment_df)
     """
-    base_dir = Path(__file__).parent.parent.parent.parent
-    
     # Load ERP
-    erp_path = base_dir / "data" / "macro_processed" / "equity_risk_pr.csv"
+    erp_path = BASE_DIR / "data" / "macro_processed" / "equity_risk_pr.csv"
     erp_df = pd.read_csv(erp_path, parse_dates=["date"])
     erp_df = erp_df.set_index("date").sort_index()
     
     # Load macro factors
-    macro_path = base_dir / "data" / "macro_final" / "final_macro.csv"
+    macro_path = BASE_DIR / "data" / "macro_final" / "final_macro.csv"
     macro_df = pd.read_csv(macro_path, parse_dates=["date"])
     macro_df = macro_df.set_index("date").sort_index()
     
     # Load sentiment (optional)
-    sentiment_path = base_dir / "data" / "news_data" / "sentiment_scores.csv"
+    sentiment_path = BASE_DIR / "data" / "news_data" / "sentiment_scores.csv"
     sentiment_df = None
     try:
         sentiment_df = pd.read_csv(sentiment_path, parse_dates=["date"])
@@ -160,4 +160,3 @@ def standardize_features(df, feature_cols):
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(df[feature_cols])
     return scaler, X_scaled
-

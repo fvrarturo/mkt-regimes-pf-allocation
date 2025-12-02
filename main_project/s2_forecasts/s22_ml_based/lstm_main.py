@@ -25,6 +25,8 @@ from lstm_model import LSTMForecaster
 from stats import compute_forecast_metrics
 from lstm_plotting import plot_learning_curves, plot_forecast_vs_realized_lstm
 
+TEST_START_DATE = pd.Timestamp("2000-01-31")
+
 
 def create_validation_split(
     X_train: np.ndarray,
@@ -89,7 +91,7 @@ def main():
     
     # Parameters
     horizons = [1, 3, 6]  # months
-    train_split = 0.65  # 65% for training
+    train_split = 0.65  # legacy reference; explicit start date controls evaluation
     sequence_length = 12  # 12 months of history
     lstm_units = 64  # More capacity to capture dynamics
     dropout_rate = 0.2  # Moderate dropout
@@ -119,7 +121,8 @@ def main():
         include_sentiment=True,
         train_split=train_split,
         include_arima=True,
-        ar_lags=3
+        ar_lags=3,
+        test_start_date=TEST_START_DATE
     )
     
     X_train = data_dict['X_train']
@@ -163,7 +166,6 @@ def main():
         print(f"Training model for horizon h = {h} months")
         print(f"{'='*60}")
         
-        # Prepare targets: combine growth and inflation into 2D array
         y_train_h = np.column_stack([
             y_train_split[h][target_names[0]],
             y_train_split[h][target_names[1]]
@@ -177,48 +179,18 @@ def main():
             y_test[h][target_names[1]]
         ])
         
-        # Train model
-        model = forecaster.fit(
+        print(f"\n  Generating forecasts with monthly refits...")
+        forecasts_h, actuals_h = forecaster.forecast_rolling(
             X_train_split,
             y_train_h,
+            X_test,
+            y_test_h,
+            horizon=h,
             X_val=X_val,
             y_val=y_val_h,
-            horizon=h,
+            refit_frequency=1,
             verbose=1
         )
-        
-        # Generate forecasts
-        print(f"\n  Generating forecasts...")
-        
-        # Extract AR features from test sequences (last timestep, AR columns)
-        # AR features are typically: growth_factor_ar1, growth_factor_ar2, growth_factor_ar3, etc.
-        # We'll use ar1 as the baseline AR prediction
-        feature_names = data_dict['feature_names']
-        ar_indices = []
-        for var_name in target_names:
-            for lag in range(1, 4):  # ar1, ar2, ar3
-                ar_col = f'{var_name}_ar{lag}'
-                if ar_col in feature_names:
-                    ar_indices.append(feature_names.index(ar_col))
-        
-        # Get AR features from the last timestep of each sequence
-        if len(ar_indices) >= 2:  # At least ar1 for both targets
-            # Extract ar1 for each target (most recent lag)
-            ar1_growth_idx = feature_names.index('growth_factor_ar1') if 'growth_factor_ar1' in feature_names else None
-            ar1_inflation_idx = feature_names.index('inflation_factor_ar1') if 'inflation_factor_ar1' in feature_names else None
-            
-            if ar1_growth_idx is not None and ar1_inflation_idx is not None:
-                # Get AR features from last timestep
-                X_ar = np.column_stack([
-                    X_test[:, -1, ar1_growth_idx],  # Last timestep, ar1 for growth
-                    X_test[:, -1, ar1_inflation_idx]  # Last timestep, ar1 for inflation
-                ])
-            else:
-                X_ar = None
-        else:
-            X_ar = None
-        
-        forecasts_h = forecaster.predict(X_test, h, X_ar_features=X_ar)
         forecasts[h] = forecasts_h
         
         # Inverse transform forecasts and actuals
@@ -399,4 +371,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

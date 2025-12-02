@@ -15,7 +15,30 @@ from typing import Dict, List, Tuple, Optional
 from sklearn.preprocessing import StandardScaler
 from hmmlearn import hmm
 import warnings
-warnings.filterwarnings('ignore')
+import sys
+import io
+from contextlib import contextmanager
+
+# Suppress convergence warnings from hmmlearn (these are common and not critical)
+warnings.filterwarnings('ignore', category=UserWarning, module='hmmlearn')
+warnings.filterwarnings('ignore', message='.*convergence.*')
+warnings.filterwarnings('ignore', message='.*not converging.*')
+
+
+@contextmanager
+def suppress_convergence_warnings():
+    """Context manager to suppress hmmlearn convergence warnings."""
+    # Capture stderr and filter out convergence messages
+    old_stderr = sys.stderr
+    try:
+        sys.stderr = io.StringIO()
+        yield
+    finally:
+        stderr_output = sys.stderr.getvalue()
+        sys.stderr = old_stderr
+        # Only print if there are non-convergence errors
+        if stderr_output and 'convergence' not in stderr_output.lower() and 'not converging' not in stderr_output.lower():
+            print(stderr_output, file=old_stderr, end='')
 
 
 class HMMRegimeModel:
@@ -130,15 +153,21 @@ class HMMRegimeModel:
         
         for init in range(n_init):
             try:
-                model = hmm.GaussianHMM(
-                    n_components=self.n_regimes,
-                    covariance_type=self.covariance_type,
-                    n_iter=self.n_iter,
-                    random_state=self.random_state + init,
-                    tol=1e-6
-                )
-                model.fit(features)
-                log_likelihood = model.score(features)
+                # Suppress convergence warnings for this specific fit
+                with warnings.catch_warnings(), suppress_convergence_warnings():
+                    warnings.filterwarnings('ignore', category=UserWarning, module='hmmlearn')
+                    warnings.filterwarnings('ignore', message='.*convergence.*')
+                    warnings.filterwarnings('ignore', message='.*not converging.*')
+                    
+                    model = hmm.GaussianHMM(
+                        n_components=self.n_regimes,
+                        covariance_type=self.covariance_type,
+                        n_iter=self.n_iter,
+                        random_state=self.random_state + init,
+                        tol=1e-5  # Slightly relaxed tolerance to reduce warnings
+                    )
+                    model.fit(features)
+                    log_likelihood = model.score(features)
                 
                 if log_likelihood > best_log_likelihood:
                     best_log_likelihood = log_likelihood

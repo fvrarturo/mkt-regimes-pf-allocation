@@ -15,6 +15,14 @@ from typing import Optional, List, Tuple
 from sklearn.preprocessing import StandardScaler
 
 
+def _safe_zscore(series: pd.Series, window: int) -> pd.Series:
+    """Compute rolling z-score with safe division."""
+    rolling_mean = series.rolling(window).mean()
+    rolling_std = series.rolling(window).std().replace(0, np.nan)
+    z = (series - rolling_mean) / rolling_std
+    return z.replace([np.inf, -np.inf], np.nan)
+
+
 def load_data(
     data_dir: Optional[Path] = None,
     include_sentiment: bool = True
@@ -203,29 +211,57 @@ def create_arima_features(
 
 def create_sentiment_features(
     sentiment_df: pd.DataFrame,
-    max_lags: int = 3
+    max_lags: int = 3,
+    macro_df: Optional[pd.DataFrame] = None
 ) -> pd.DataFrame:
     """
-    Create sentiment features with optional lags.
-    
-    Parameters:
-    -----------
-    sentiment_df : pd.DataFrame
-        Sentiment data
-    max_lags : int
-        Maximum number of lags for sentiment (default: 3 for short lags)
-    
-    Returns:
-    --------
-    pd.DataFrame
-        Sentiment features with lags
+    Create enriched sentiment features (lags, momentum, surprises, cross terms).
     """
     sentiment_features = sentiment_df.copy()
     
-    # Create lags for each sentiment variable
     for col in sentiment_df.columns:
+        # Smooth levels
+        sentiment_features[f'{col}_ma3'] = sentiment_df[col].rolling(3).mean()
+        sentiment_features[f'{col}_ma6'] = sentiment_df[col].rolling(6).mean()
+        
+        # Surprise vs short-term trend
+        surprise = sentiment_df[col] - sentiment_features[f'{col}_ma3']
+        sentiment_features[f'{col}_surprise'] = surprise
+        
+        # Momentum and acceleration
+        sentiment_features[f'{col}_momentum'] = sentiment_df[col].diff()
+        sentiment_features[f'{col}_accel'] = sentiment_features[f'{col}_momentum'].diff()
+        
+        # Dispersion / z-scores
+        sentiment_features[f'{col}_zscore3'] = _safe_zscore(sentiment_df[col], 3)
+        sentiment_features[f'{col}_zscore6'] = _safe_zscore(sentiment_df[col], 6)
+        
+        # Absolute level captures signal strength
+        sentiment_features[f'{col}_abs'] = sentiment_df[col].abs()
+        
+        # Create short lags to capture persistence
         for lag in range(1, max_lags + 1):
             sentiment_features[f'{col}_lag{lag}'] = sentiment_df[col].shift(lag)
+            sentiment_features[f'{col}_surprise_lag{lag}'] = surprise.shift(lag)
+    
+    # Panel-level statistics
+    sentiment_features['sentiment_average'] = sentiment_df.mean(axis=1)
+    sentiment_features['sentiment_dispersion'] = sentiment_df.std(axis=1)
+    
+    # Cross terms between macro fundamentals and matching sentiment
+    if macro_df is not None:
+        macro_aligned = macro_df.reindex(sentiment_df.index, method='ffill')
+        mapping = {
+            'growth_factor': 'ec_growth_sentiment',
+            'inflation_factor': 'inflation_sentiment',
+            'monetary_policy_factor': 'monetary_policy_sentiment',
+            'market_volatility_factor': 'market_vol_sentiment'
+        }
+        for macro_col, sent_col in mapping.items():
+            if macro_col in macro_aligned.columns and sent_col in sentiment_df.columns:
+                sentiment_features[f'{macro_col}_x_{sent_col}'] = (
+                    macro_aligned[macro_col] * sentiment_df[sent_col]
+                )
     
     return sentiment_features
 
@@ -300,7 +336,11 @@ def prepare_features(
         sentiment_aligned = sentiment_df.reindex(macro_df.index, method='ffill')
         
         # Create sentiment features with lags
-        sentiment_features = create_sentiment_features(sentiment_aligned, max_lags=sentiment_lags)
+        sentiment_features = create_sentiment_features(
+            sentiment_aligned,
+            max_lags=sentiment_lags,
+            macro_df=macro_df
+        )
         
         # Merge sentiment features (use inner join to keep only overlapping dates)
         # This ensures we have both macro and sentiment data
@@ -360,7 +400,8 @@ def create_targets(
 def prepare_train_test_split(
     feature_df: pd.DataFrame,
     target_df: pd.DataFrame,
-    train_split: float = 0.65
+    train_split: float = 0.65,
+    test_start_date: Optional[pd.Timestamp] = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Split data into training and test sets.
@@ -379,27 +420,30 @@ def prepare_train_test_split(
     tuple
         (X_train, X_test, y_train, y_test)
     """
-    # Align indices
     common_idx = feature_df.index.intersection(target_df.index)
-    feature_df = feature_df.loc[common_idx]
-    target_df = target_df.loc[common_idx]
+    feature_df = feature_df.loc[common_idx].sort_index()
+    target_df = target_df.loc[common_idx].sort_index()
     
-    # Sort by date
-    feature_df = feature_df.sort_index()
-    target_df = target_df.sort_index()
-    
-    # Split
-    n_total = len(feature_df)
-    n_train = int(n_total * train_split)
-    
-    X_train = feature_df.iloc[:n_train]
-    X_test = feature_df.iloc[n_train:]
-    y_train = target_df.iloc[:n_train]
-    y_test = target_df.iloc[n_train:]
+    if test_start_date is not None:
+        start_ts = pd.Timestamp(test_start_date)
+        train_mask = feature_df.index < start_ts
+        test_mask = feature_df.index >= start_ts
+        if not train_mask.any():
+            raise ValueError(f"No training observations before {start_ts}.")
+        X_train = feature_df.loc[train_mask]
+        X_test = feature_df.loc[test_mask]
+        y_train = target_df.loc[train_mask]
+        y_test = target_df.loc[test_mask]
+    else:
+        n_total = len(feature_df)
+        n_train = int(n_total * train_split)
+        X_train = feature_df.iloc[:n_train]
+        X_test = feature_df.iloc[n_train:]
+        y_train = target_df.iloc[:n_train]
+        y_test = target_df.iloc[n_train:]
     
     print(f"\nTrain/test split:")
     print(f"  Training: {len(X_train)} observations ({X_train.index.min()} to {X_train.index.max()})")
     print(f"  Test: {len(X_test)} observations ({X_test.index.min()} to {X_test.index.max()})")
     
     return X_train, X_test, y_train, y_test
-

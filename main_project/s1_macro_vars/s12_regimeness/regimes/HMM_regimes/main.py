@@ -22,15 +22,25 @@ import sys
 import warnings
 warnings.filterwarnings('ignore')
 
-# Add current directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
+# Add current directory and shared utilities to path for imports
+SCRIPT_DIR = Path(__file__).resolve().parent
+REGIMES_DIR = SCRIPT_DIR.parent
+SECTION_DIR = SCRIPT_DIR.parents[2]  # s1_macro_vars
+for path in (SCRIPT_DIR, REGIMES_DIR, SECTION_DIR):
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
 from hmm_model import HMMRegimeModel
 from plotting import HMMPlotter
 from results import HMMResults
+from path_utils import get_data_dir
 
 # Import 2x2 regime definitions for comparison
-sys.path.insert(0, str(Path(__file__).parent.parent / '2x2_regimes'))
+two_by_two_path = SCRIPT_DIR.parent / '2x2_regimes'
+two_by_two_str = str(two_by_two_path)
+if two_by_two_str not in sys.path:
+    sys.path.insert(0, two_by_two_str)
 try:
     from regime_definitions import RegimeDefinitions
 except ImportError:
@@ -471,12 +481,8 @@ class HMMRegimeAnalyzer:
 
 def main():
     """Main execution function."""
-    # Set up paths
-    script_dir = Path(__file__).parent.absolute()
-    # Path structure: main_project2/s1_macro_vars/s12_regimeness/HMM_regimes/
-    # Go up 4 levels: HMM_regimes -> s12_regimeness -> s1_macro_vars -> main_project2
-    main_project2_dir = script_dir.parent.parent.parent.parent / 'main_project2'
-    data_dir = main_project2_dir / 'data'
+    script_dir = Path(__file__).resolve().parent
+    data_dir = get_data_dir(__file__)
     output_dir = script_dir / 'results_4vars'
     
     # Verify data directory exists
@@ -497,4 +503,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

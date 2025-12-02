@@ -26,6 +26,8 @@ class XGBoostForecaster:
         learning_rate: float = 0.05,
         subsample: float = 0.8,
         colsample_bytree: float = 0.8,
+        min_child_weight: float = 1.0,
+        gamma: float = 0.0,
         random_state: int = 42
     ):
         """
@@ -51,10 +53,33 @@ class XGBoostForecaster:
         self.learning_rate = learning_rate
         self.subsample = subsample
         self.colsample_bytree = colsample_bytree
+        self.min_child_weight = min_child_weight
+        self.gamma = gamma
         self.random_state = random_state
         
         self.models = {}  # Store models for each (variable, horizon) pair
         self.feature_names = None
+    
+    def _train_val_split(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        val_fraction: float = 0.15,
+        min_val: int = 24
+    ) -> Tuple[pd.DataFrame, Optional[pd.DataFrame], pd.Series, Optional[pd.Series]]:
+        """
+        Split training data into (train, validation) preserving order.
+        """
+        n_obs = len(X)
+        val_size = max(int(n_obs * val_fraction), min_val)
+        if n_obs <= val_size + 10:
+            return X, None, y, None
+        
+        X_fit = X.iloc[:-val_size]
+        X_val = X.iloc[-val_size:]
+        y_fit = y.iloc[:-val_size]
+        y_val = y.iloc[-val_size:]
+        return X_fit, X_val, y_fit, y_val
     
     def tune_hyperparameters(
         self,
@@ -87,8 +112,10 @@ class XGBoostForecaster:
                 'n_estimators': [200, 300, 500],
                 'max_depth': [2, 3, 5],
                 'learning_rate': [0.03, 0.05, 0.1],
-                'subsample': [0.7, 0.8, 1.0],
-                'colsample_bytree': [0.7, 0.8, 1.0]
+                'subsample': [0.6, 0.8, 1.0],
+                'colsample_bytree': [0.6, 0.8, 1.0],
+                'min_child_weight': [1, 3, 5],
+                'gamma': [0.0, 0.1, 0.3]
             }
         
         # Use TimeSeriesSplit for time-series aware CV
@@ -97,19 +124,18 @@ class XGBoostForecaster:
         best_score = np.inf
         best_params = None
         
-        # Simple grid search (can be replaced with RandomizedSearchCV for efficiency)
+        # Simple random grid search for efficiency
         print("  Tuning hyperparameters...")
         total_combinations = np.prod([len(v) for v in param_grid.values()])
         print(f"  Testing {total_combinations} combinations (this may take a while)...")
         
-        # Limit search space for efficiency - sample combinations
         from itertools import product
-        import random
-        
-        # Sample up to 20 random combinations
+        rng = np.random.default_rng(self.random_state)
         all_combinations = list(product(*param_grid.values()))
-        if len(all_combinations) > 20:
-            combinations = random.sample(all_combinations, 20)
+        sample_size = min(30, len(all_combinations))
+        if len(all_combinations) > sample_size:
+            indices = rng.choice(len(all_combinations), size=sample_size, replace=False)
+            combinations = [all_combinations[i] for i in indices]
         else:
             combinations = all_combinations
         
@@ -187,28 +213,38 @@ class XGBoostForecaster:
         # Tune hyperparameters if requested
         if tune:
             best_params = self.tune_hyperparameters(X_train, y_train)
-            model = xgb.XGBRegressor(
-                n_estimators=best_params['n_estimators'],
-                max_depth=best_params['max_depth'],
-                learning_rate=best_params['learning_rate'],
-                subsample=best_params['subsample'],
-                colsample_bytree=best_params['colsample_bytree'],
-                random_state=self.random_state,
-                n_jobs=-1
-            )
-        else:
-            model = xgb.XGBRegressor(
-                n_estimators=self.n_estimators,
-                max_depth=self.max_depth,
-                learning_rate=self.learning_rate,
-                subsample=self.subsample,
-                colsample_bytree=self.colsample_bytree,
-                random_state=self.random_state,
-                n_jobs=-1
-            )
+            self.n_estimators = best_params['n_estimators']
+            self.max_depth = best_params['max_depth']
+            self.learning_rate = best_params['learning_rate']
+            self.subsample = best_params['subsample']
+            self.colsample_bytree = best_params['colsample_bytree']
+            self.min_child_weight = best_params.get('min_child_weight', self.min_child_weight)
+            self.gamma = best_params.get('gamma', self.gamma)
         
-        # Fit model
-        model.fit(X_train, y_train)
+        model = xgb.XGBRegressor(
+            n_estimators=self.n_estimators,
+            max_depth=self.max_depth,
+            learning_rate=self.learning_rate,
+            subsample=self.subsample,
+            colsample_bytree=self.colsample_bytree,
+            min_child_weight=self.min_child_weight,
+            gamma=self.gamma,
+            random_state=self.random_state,
+            n_jobs=-1
+        )
+        
+        X_fit, X_val, y_fit, y_val = self._train_val_split(X_train, y_train)
+        eval_set = None
+        if X_val is not None and y_val is not None:
+            eval_set = [(X_val, y_val)]
+        
+        model.fit(
+            X_fit,
+            y_fit,
+            eval_set=eval_set,
+            verbose=False,
+            early_stopping_rounds=25 if eval_set else None
+        )
         
         # Store model
         key = (variable, horizon)
@@ -367,4 +403,3 @@ class XGBoostForecaster:
             # This is a simplified version - in real scenario, you'd update with actuals as they arrive
         
         return forecasts
-

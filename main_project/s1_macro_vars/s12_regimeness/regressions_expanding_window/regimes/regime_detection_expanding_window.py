@@ -15,15 +15,44 @@ from pathlib import Path
 from typing import Dict, List, Optional
 from sklearn.preprocessing import StandardScaler
 import warnings
-warnings.filterwarnings('ignore')
-
-# Import HMM model
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'regimes' / 'HMM_regimes'))
+import io
+from contextlib import contextmanager
+
+# Suppress convergence warnings from hmmlearn
+warnings.filterwarnings('ignore', category=UserWarning, module='hmmlearn')
+warnings.filterwarnings('ignore', message='.*convergence.*')
+warnings.filterwarnings('ignore', message='.*not converging.*')
+
+
+@contextmanager
+def suppress_convergence_warnings():
+    """Context manager to suppress hmmlearn convergence warnings."""
+    # Capture stderr and filter out convergence messages
+    old_stderr = sys.stderr
+    try:
+        sys.stderr = io.StringIO()
+        yield
+    finally:
+        stderr_output = sys.stderr.getvalue()
+        sys.stderr = old_stderr
+        # Only print if there are non-convergence errors
+        if stderr_output and 'convergence' not in stderr_output.lower() and 'not converging' not in stderr_output.lower():
+            print(stderr_output, file=old_stderr, end='')
+
+# Import shared helpers and regime modules
+import sys
+SCRIPT_DIR = Path(__file__).resolve().parent
+SECTION_DIR = SCRIPT_DIR.parents[3]  # s1_macro_vars
+if str(SECTION_DIR) not in sys.path:
+    sys.path.insert(0, str(SECTION_DIR))
+
+from path_utils import get_project_root
+
+sys.path.insert(0, str(SCRIPT_DIR.parent.parent / 'regimes' / 'HMM_regimes'))
 from hmm_model import HMMRegimeModel
 
-# Import 2x2 regime definitions
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'regimes' / '2x2_regimes'))
+sys.path.insert(0, str(SCRIPT_DIR.parent.parent / 'regimes' / '2x2_regimes'))
 from regime_definitions import RegimeDefinitions
 
 
@@ -51,7 +80,7 @@ class ExpandingWindowRegimeDetector:
         Parameters:
         -----------
         data_dir : Path
-            Path to main_project2 directory
+            Path to main_project directory
         regime_model : str
             Which regime model to use: 'hmm_optimal' or '2x2'
         min_window_size : int
@@ -143,7 +172,12 @@ class ExpandingWindowRegimeDetector:
             hmm_model.scaler = scaler
             
             try:
-                hmm_model.fit(features, n_init=5)  # Fewer iterations for speed
+                # Suppress convergence warnings during fitting
+                with warnings.catch_warnings(), suppress_convergence_warnings():
+                    warnings.filterwarnings('ignore', category=UserWarning, module='hmmlearn')
+                    warnings.filterwarnings('ignore', message='.*convergence.*')
+                    warnings.filterwarnings('ignore', message='.*not converging.*')
+                    hmm_model.fit(features, n_init=5)  # Fewer iterations for speed
                 
                 # Get regime assignment for current time point (last in window)
                 # Use the last state from the full sequence prediction
@@ -431,8 +465,7 @@ def main():
     print("="*80)
     
     # Set up paths
-    script_dir = Path(__file__).parent.absolute()
-    base_dir = script_dir.parent.parent.parent.parent  # Points to main_project2
+    base_dir = get_project_root(__file__)
     
     # Detect regimes for both models
     models = ['hmm_optimal', '2x2']
@@ -464,4 +497,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

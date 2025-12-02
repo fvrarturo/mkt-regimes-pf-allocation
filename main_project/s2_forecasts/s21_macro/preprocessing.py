@@ -76,7 +76,8 @@ def load_macro_data(data_dir: Optional[Path] = None) -> pd.DataFrame:
 def prepare_forecast_data(
     df: pd.DataFrame,
     train_split: float = 0.65,
-    horizons: list = [1, 3, 6]
+    horizons: list = [1, 3, 6],
+    test_start_date: Optional[pd.Timestamp] = None
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DatetimeIndex]:
     """
     Prepare data for forecasting with train/test split.
@@ -102,12 +103,17 @@ def prepare_forecast_data(
     # Ensure data is sorted by date
     df = df.sort_index()
     
-    # Calculate split point
-    n_total = len(df)
-    n_train = int(n_total * train_split)
-    
-    train_data = df.iloc[:n_train].copy()
-    test_data = df.iloc[n_train:].copy()
+    if test_start_date is not None:
+        start_ts = pd.Timestamp(test_start_date)
+        train_data = df[df.index < start_ts].copy()
+        test_data = df[df.index >= start_ts].copy()
+        if train_data.empty:
+            raise ValueError(f"No training observations before {start_ts}.")
+    else:
+        n_total = len(df)
+        n_train = int(n_total * train_split)
+        train_data = df.iloc[:n_train].copy()
+        test_data = df.iloc[n_train:].copy()
     
     # Get test period dates (excluding last max(horizons) dates for forecast evaluation)
     max_horizon = max(horizons)
@@ -169,4 +175,3 @@ def select_lag_order(
     print(f"\nSelected lag order: {optimal_lag}")
     
     return optimal_lag
-

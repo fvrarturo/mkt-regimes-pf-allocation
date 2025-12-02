@@ -309,40 +309,36 @@ class LSTMForecaster:
         X_train: np.ndarray,
         y_train: np.ndarray,
         X_test: np.ndarray,
+        y_test: np.ndarray,
         horizon: int,
-        refit_frequency: int = 12,
+        X_val: Optional[np.ndarray] = None,
+        y_val: Optional[np.ndarray] = None,
+        refit_frequency: int = 1,
         verbose: int = 0
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Generate rolling window forecasts with periodic refitting.
-        
-        Parameters:
-        -----------
-        X_train : np.ndarray
-            Initial training sequences
-        y_train : np.ndarray
-            Initial training targets
-        X_test : np.ndarray
-            Test sequences
-        horizon : int
-            Forecast horizon
-        refit_frequency : int
-            Number of periods between refits
-        verbose : int
-            Verbosity level
-        
-        Returns:
-        --------
-        tuple
-            (forecasts, actuals)
-            - forecasts: Predictions (n_test_samples, n_outputs)
-            - actuals: Actual values (n_test_samples, n_outputs)
+        Generate forecasts by refitting the LSTM each time new data arrives.
         """
-        # Initial fit
-        self.fit(X_train, y_train, horizon=horizon, verbose=verbose)
+        history_X = X_train.copy()
+        history_y = y_train.copy()
+        forecasts = []
+        actuals = []
         
-        # Generate forecasts
-        forecasts = self.predict(X_test, horizon)
+        for idx in range(len(X_test)):
+            self.fit(
+                history_X,
+                history_y,
+                X_val=X_val,
+                y_val=y_val,
+                horizon=horizon,
+                verbose=verbose
+            )
+            current_pred = self.predict(X_test[idx:idx+1], horizon)[0]
+            forecasts.append(current_pred)
+            actuals.append(y_test[idx])
+            
+            # Append latest observation to history to simulate expanding window
+            history_X = np.concatenate([history_X, X_test[idx:idx+1]], axis=0)
+            history_y = np.concatenate([history_y, y_test[idx:idx+1]], axis=0)
         
-        return forecasts
-
+        return np.array(forecasts), np.array(actuals)

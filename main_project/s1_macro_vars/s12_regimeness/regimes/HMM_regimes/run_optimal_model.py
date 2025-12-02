@@ -14,12 +14,19 @@ import sys
 import warnings
 warnings.filterwarnings('ignore')
 
-# Add current directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent))
+# Add current directory and shared utilities to path for imports
+SCRIPT_DIR = Path(__file__).resolve().parent
+REGIMES_DIR = SCRIPT_DIR.parent
+SECTION_DIR = SCRIPT_DIR.parents[2]
+for path in (SCRIPT_DIR, REGIMES_DIR, SECTION_DIR):
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
 from hmm_model import HMMRegimeModel
 from plotting import HMMPlotter
 from results import HMMResults
+from path_utils import get_data_dir
 
 
 class OptimalHMMAnalyzer:
@@ -329,9 +336,8 @@ class OptimalHMMAnalyzer:
 
 def main():
     """Main execution function."""
-    script_dir = Path(__file__).parent.absolute()
-    main_project2_dir = script_dir.parent.parent.parent.parent / 'main_project2'
-    data_dir = main_project2_dir / 'data'
+    script_dir = Path(__file__).resolve().parent
+    data_dir = get_data_dir(__file__)
     output_dir = script_dir / 'results_2vars_optimal'
     
     analyzer = OptimalHMMAnalyzer(
@@ -345,4 +351,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

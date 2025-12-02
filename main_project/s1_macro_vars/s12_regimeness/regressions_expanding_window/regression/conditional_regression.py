@@ -36,7 +36,7 @@ class RegimeConditionalRegressor:
         Parameters:
         -----------
         data_dir : Path
-            Path to main_project2 directory
+            Path to the main_project directory
         regime_model : str
             Which regime model to use: 'hmm_optimal' or '2x2'
         output_dir : Path, optional
@@ -141,14 +141,9 @@ class RegimeConditionalRegressor:
         print("\nLoading macro variables...")
         
         macro_vars = {}
-        # Try main_project2 first, then fall back to main_project
         macro_data_dir = self.data_dir / 'data' / 'macro_processed'
-        if not macro_data_dir.exists() or len(list(macro_data_dir.glob('*/'))) == 0:
-            # Try main_project
-            main_project_dir = self.data_dir.parent / 'main_project' / 'data' / 'macro_processed'
-            if main_project_dir.exists():
-                macro_data_dir = main_project_dir
-                print(f"  Using macro data from: {main_project_dir}")
+        if not macro_data_dir.exists():
+            raise FileNotFoundError(f"Macro processed directory not found: {macro_data_dir}")
         
         # Define subdirectories and their variable mappings
         subdirs = {
@@ -602,4 +597,3 @@ class RegimeConditionalRegressor:
                 index=False
             )
             print(f"  Saved: coefficient_difference_tests.csv")
-

@@ -88,7 +88,7 @@ This report compares forecast performance across four models:
 
 ## Conclusions
 
-1. **Short-term forecasts (h=1)**: TVP-VAR performs best for both GDP and inflation.
+1. **Short-term forecasts (h=1)**: TVP-VAR performs best for both Growth (Industrial Production) and Inflation.
 2. **Medium-term forecasts (h=3,6)**: XGBoost models show improvements over TVP-VAR.
 3. **Sentiment impact**: Adding sentiment features provides marginal improvements.
 4. **LSTM performance**: LSTM shows competitive performance at longer horizons.

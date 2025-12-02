@@ -11,6 +11,8 @@ import numpy as np
 from typing import Tuple, Optional, List
 from sklearn.preprocessing import StandardScaler
 
+from preprocessing import create_sentiment_features
+
 
 def create_sequences(
     data: pd.DataFrame,
@@ -75,7 +77,8 @@ def prepare_lstm_data(
     include_sentiment: bool = True,
     train_split: float = 0.65,
     include_arima: bool = True,
-    ar_lags: int = 3
+    ar_lags: int = 3,
+    test_start_date: Optional[pd.Timestamp] = None
 ) -> dict:
     """
     Prepare data for LSTM training.
@@ -107,9 +110,14 @@ def prepare_lstm_data(
     """
     # Combine macro and sentiment
     if include_sentiment and sentiment_df is not None:
-        # Align sentiment with macro dates
+        # Align and enrich sentiment signals
         sentiment_aligned = sentiment_df.reindex(macro_df.index, method='ffill')
-        combined_df = macro_df.join(sentiment_aligned, how='inner')
+        enriched_sentiment = create_sentiment_features(
+            sentiment_aligned,
+            max_lags=3,
+            macro_df=macro_df
+        )
+        combined_df = macro_df.join(enriched_sentiment, how='inner')
     else:
         combined_df = macro_df.copy()
     
@@ -187,12 +195,17 @@ def prepare_lstm_data(
     # Combine scaled features and targets
     data_scaled = feature_scaled.join(target_scaled_df, how='inner')
     
-    # Split into train/test
-    n_total = len(data_scaled)
-    n_train = int(n_total * train_split)
-    
-    train_data = data_scaled.iloc[:n_train]
-    test_data = data_scaled.iloc[n_train:]
+    if test_start_date is not None:
+        start_ts = pd.Timestamp(test_start_date)
+        train_data = data_scaled.loc[data_scaled.index < start_ts]
+        test_data = data_scaled.loc[data_scaled.index >= start_ts]
+        if len(train_data) <= sequence_length:
+            raise ValueError(f"Not enough training data before {start_ts} for sequence length {sequence_length}.")
+    else:
+        n_total = len(data_scaled)
+        n_train = int(n_total * train_split)
+        train_data = data_scaled.iloc[:n_train]
+        test_data = data_scaled.iloc[n_train:]
     
     print(f"\nLSTM data preparation:")
     print(f"  Sequence length: {sequence_length} months")
@@ -230,4 +243,3 @@ def prepare_lstm_data(
         'target_names': target_cols,
         'sequence_length': sequence_length
     }
-

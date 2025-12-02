@@ -1,80 +1,50 @@
 # Regime-Conditional Regression Analysis
 
-This folder contains analysis of which macro variables predict Equity Risk Premium (ERP) conditional on different economic regimes.
+This folder contains the Section 1 workflow for discovering macro regimes and running conditional ERP regressions that feed the forecasting/trading pipeline described in `codex_instructions.md`.
 
-## 📁 Folder Organization
+## 📁 Folder Organization (current)
 
-Results are organized into two main folders:
-
-### 1. `results_full_sample/` - Full-Sample Analysis (With Look-Ahead Bias)
-- **Purpose**: Exploratory/descriptive analysis
-- **Regime Detection**: Uses entire dataset
-- **Use for**: Understanding relationships, hypothesis generation
-- **Not suitable for**: Actual predictions, trading strategies
-
-### 2. `results_expanding_window/` - Expanding Window Analysis (No Look-Ahead Bias)
-- **Purpose**: Predictive analysis, out-of-sample validation
-- **Regime Detection**: Uses only past data (expanding windows)
-- **Use for**: Actual predictions, trading strategies, real-world applications
-- **Suitable for**: Out-of-sample forecasting
-
-See `FOLDER_STRUCTURE.md` for detailed structure.
-
-## 📊 Key Findings
-
-### Variables with Significant Predictive Power
-
-1. **Unemployment**: Significant in multiple regimes (β = 0.0044** to 0.0091**)
-2. **Fed Reserve Discount Rate**: Strong effects in Overheating/Stagflation (β = -0.0116** to -0.0158***)
-3. **National Financial Conditions Index**: Significant in recessionary regimes (β = -0.0043** to -0.0049**)
-4. **Industrial Production**: Significant in Stagflation (β = -0.0081**)
-
-### Model Comparison
-
-- **2x2 Model**: Better regime differentiation (25 significant coefficient differences)
-- **HMM Optimal**: More consistent patterns across regimes (0 significant differences)
-
-## 📝 Scripts
-
-### Full-Sample Analysis
-- `regressions_full_sample/regime_conditional_regressions.py` - Main regression script
-- `regressions_full_sample/regime_conditional_regressions_README.md` - Documentation
-
-### Expanding Window Analysis
-- `regressions_expanding_window/regime_conditional_regressions.py` - Main regression script
-- `regressions_expanding_window/regime_detection_expanding_window.py` - Expanding window regime detection
-- `regressions_expanding_window/run_analysis_no_lookahead.py` - Complete analysis pipeline
-- `regressions_expanding_window/regime_conditional_regressions_README.md` - Documentation
-
-## 📚 Documentation
-
-- `FOLDER_STRUCTURE.md` - Detailed folder structure
-- `regime_conditional_regressions_README.md` - Methodology documentation
-- `results_full_sample/README.md` - Full-sample results overview
-- `results_expanding_window/README.md` - Expanding window results overview
-
-## 🔍 Quick Start
-
-### To view full-sample results:
-```bash
-cd regressions_full_sample/results/{model}/
-# See SUMMARY.md for key findings
+```
+s12_regimeness/
+├── regimes/                    # Regime definitions + statistics
+│   ├── 2x2_regimes/            # Growth × Inflation baseline
+│   └── HMM_regimes/            # Gaussian HMMs (Growth+Policy optimal)
+├── compare_models.py           # Generates 2×2 vs HMM comparison tables
+├── results/                    # CSV summary from compare_models.py
+└── regressions_expanding_window/
+    ├── regimes/                # Expanding-window regime detection
+    ├── regression/             # Probability-weighted regressions
+    └── results/                # Look-ahead-free regression outputs
 ```
 
-### To view expanding window results:
-```bash
-cd regressions_expanding_window/results/{model}/
-# See SUMMARY.md and RESULTS_SUMMARY.md for key findings
-```
+Legacy `results_full_sample/` assets were removed to keep the focus on out-of-sample, pipeline-ready artifacts.
 
-### To compare results:
-- Full-sample: `regressions_full_sample/results/{model}/SUMMARY.md`
-- Expanding window: `regressions_expanding_window/results/{model}/SUMMARY.md`
+## 🔑 What matters for the main goal
 
-## ⚠️ Important Notes
+1. **Select the informative regime lens**  
+   - Run `python s12_regimeness/compare_models.py`.  
+   - Output: `results/regime_comparison_summary.csv` and the repo-level `COMPARISON_2X2_VS_HMM_OPTIMAL.md`.  
+   - Interpretation: Growth + Policy HMM delivers the widest ERP spread (4.15 ppts) and twice as many 5 %‑significant regime differences as the 2×2 baseline. This becomes the default regime signal for forecasting and strategies.
 
-1. **Full-sample results** have look-ahead bias - use for exploration only
-2. **Expanding window results** are truly predictive - use for forecasting
-3. **Robust relationships** are those significant in both analyses
-4. **Unemployment** is the most robust predictor (holds in both analyses)
+2. **Inspect regime details**  
+   - 2×2 documentation: `regimes/2x2_regimes/README.md` + `results/RESULTS_SUMMARY.md` (serves as the intuitive baseline).  
+   - HMM documentation: `regimes/HMM_regimes/README.md`, `SUMMARY.md`, `ECONOMIC_ANALYSIS.md`.  
+   - For quantified characteristics use each folder’s `regime_statistics.csv` / `pairwise_ttests_erp.csv`.
 
+3. **Run probability-weighted regressions without look-ahead bias**  
+   - Entry point: `regressions_expanding_window/main.py`.  
+   - Produces expanding-window regime probabilities and conditional regressions (horizon-by-regime coefficients and their significance) aligned with the requirements in `codex_instructions.md`.
+
+## 📊 Current Findings (5 % threshold)
+
+- **Best regime model**: Growth + Policy HMM (see comparison summary).  
+- **Baseline intuition**: 2×2 Growth × Inflation regimes still provide a pedagogy-friendly interpretation layer; Stagflation remains the only negative-ERP quadrant.  
+- **Conditional regressions**: The expanding-window outputs highlight Unemployment, Discount Rate, Financial Conditions, and Industrial Production as repeatedly significant predictors in risk-off regimes—those are the features prioritized when moving into forecasting (Step 2).
+
+## Quick Start
+
+1. `python s12_regimeness/compare_models.py`
+2. `python s12_regimeness/regimes/HMM_regimes/run_growth_policy_model.py`
+3. `python s12_regimeness/regressions_expanding_window/main.py`
+
+Use the generated CSVs/plots directly when building forecasting features (Step 2) and strategy signals (Step 3). Everything else has been trimmed to keep the Section 1 documentation aligned with the project’s main goal.
