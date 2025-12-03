@@ -20,7 +20,7 @@ Y_t = [growth_factor_t, inflation_factor_t, monetary_policy_factor_t,
        market_volatility_factor_t, oil_midas_t]
 ```
 
-1. **Growth Factor** (monthly) - Industrial Production month-over-month % change
+1. **Growth Factor** (monthly) - Monthly economic growth index
 2. **Inflation Factor** (monthly) - CPI-based inflation measure
 3. **Monetary Policy Factor** (monthly) - Federal funds rate proxy
 4. **Market Volatility Factor** (monthly) - VIX-based volatility
