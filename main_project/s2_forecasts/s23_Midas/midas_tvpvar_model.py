@@ -237,10 +237,21 @@ def create_midas_oil_factor(
         Monthly MIDAS oil factor
     """
     # Create exponential weights: more recent days get more weight
-    weights = np.exp(-theta * np.arange(K))
+    # weights[i] for position i (0=oldest, K-1=newest) should be exp(-theta * (K-1-i))
+    # This ensures newest (position K-1) gets weight exp(-theta*0)=1.0 (highest)
+    # and oldest (position 0) gets weight exp(-theta*(K-1)) (lowest)
+    weights = np.exp(-theta * np.arange(K-1, -1, -1))  # [exp(-theta*(K-1)), ..., exp(-theta*0)]
     weights = weights / weights.sum()  # Normalize
     
+    # Validate oil prices are non-negative
+    negative_count = (daily_oil < 0).sum()
+    if negative_count > 0:
+        import warnings
+        warnings.warn(f"Found {negative_count} negative oil prices. Clipping to zero.")
+        daily_oil = daily_oil.clip(lower=0.0)
+    
     # Rolling MIDAS convolution
+    # rolling() gives us [oldest, ..., newest] in order, so we apply weights directly
     daily_oil_series = daily_oil.copy()
     daily_oil_series['oil_midas'] = (
         daily_oil_series

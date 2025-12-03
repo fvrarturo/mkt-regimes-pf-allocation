@@ -4,12 +4,25 @@ import statsmodels.api as sm
 from typing import List, Dict, Optional, Any
 
 def load_daily_oil(path):
+    """
+    Load daily oil prices from CSV.
+    
+    Handles negative prices (which occurred historically in 2020) by clipping to zero,
+    as negative prices are not economically meaningful for MIDAS aggregation.
+    """
     df = pd.read_csv(path)
     df['Date'] = pd.to_datetime(df['Date'])
     df = df[['Date', 'Close']].rename(columns={'Close': 'oil_price'})
     df = df.set_index('Date').sort_index()
     df['oil_price'] = df['oil_price'].ffill()
-
+    
+    # Handle negative prices (historical anomaly from 2020)
+    # Clip to zero as negative prices are not meaningful for MIDAS aggregation
+    negative_count = (df['oil_price'] < 0).sum()
+    if negative_count > 0:
+        print(f"Warning: Found {negative_count} negative oil prices. Clipping to zero.")
+        df['oil_price'] = df['oil_price'].clip(lower=0.0)
+    
     return df
 
 def make_midas_oil_factor(daily_oil, theta=0.03, K=60):
@@ -20,16 +33,24 @@ def make_midas_oil_factor(daily_oil, theta=0.03, K=60):
     daily_oil: df with daily index
     theta: decay parameter
     K: number of daily lags to use
+    
+    Note: Weights are applied so that recent observations receive the highest weight,
+    and older observations receive lower weights (exponential decay).
     """
 
-    weights = np.exp(-theta * np.arange(K))
-    weights = weights / weights.sum()
+    # Create exponential weights: recent observations get higher weights
+    # weights[i] for position i (0=oldest, K-1=newest) should be exp(-theta * (K-1-i))
+    # This ensures newest (position K-1) gets weight exp(-theta*0)=1.0 (highest)
+    # and oldest (position 0) gets weight exp(-theta*(K-1)) (lowest)
+    weights = np.exp(-theta * np.arange(K-1, -1, -1))  # [exp(-theta*(K-1)), ..., exp(-theta*0)]
+    weights = weights / weights.sum()  # Normalize
 
     # Rolling MIDAS convolution
+    # rolling() gives us [oldest, ..., newest] in order, so we apply weights directly
     daily_oil['oil_midas'] = (
         daily_oil['oil_price']
         .rolling(K)
-        .apply(lambda x: np.sum(x * weights), raw=True)
+        .apply(lambda x: np.sum(x.values * weights), raw=True)
     )
 
     monthly = daily_oil['oil_midas'].resample('M').last()
@@ -216,19 +237,32 @@ def fit_rolling_midas_forecast(
             models_dict[forecast_date] = model
             
             # Generate forecasts for this forecast_date
-            # For each horizon, use the features at forecast_date to predict
+            # NOTE: OLS models cannot produce true multi-step forecasts because they only
+            # predict a single target variable. For h>1, we use the h=1 prediction as an
+            # approximation. For proper multi-step forecasting, use VAR models instead.
             try:
                 # Check if forecast_date is in X_clean index
                 if forecast_date in X_clean.index:
-                    feat_row = X_clean.loc[[forecast_date]]  # Get features at forecast_date
+                    feat_row = X_clean.loc[[forecast_date]].copy()  # Get features at forecast_date
                     
                     if len(feat_row) > 0:
+                        # Generate h=1 forecast (direct prediction)
+                        try:
+                            forecast_1 = model.predict(feat_row).values[0]
+                            forecasts.loc[forecast_date, 'h_1'] = forecast_1
+                        except Exception as e:
+                            forecasts.loc[forecast_date, 'h_1'] = np.nan
+                        
+                        # For h>1: OLS limitation - cannot do true multi-step forecasting
+                        # We use h=1 prediction for all horizons as approximation
+                        # This acknowledges that OLS is not ideal for multi-step forecasting
+                        forecast_val = forecast_1 if pd.notna(forecast_1) else np.nan
                         for h in horizons:
-                            try:
-                                forecast_val = model.predict(feat_row).values[0]
+                            if h > 1:
                                 forecasts.loc[forecast_date, f'h_{h}'] = forecast_val
-                            except Exception as e:
-                                forecasts.loc[forecast_date, f'h_{h}'] = np.nan
+                    else:
+                        for h in horizons:
+                            forecasts.loc[forecast_date, f'h_{h}'] = np.nan
                 else:
                     # forecast_date not in features due to lags, skip
                     for h in horizons:
@@ -294,12 +328,18 @@ def fit_rolling_midas_forecast(
 
 
 
-# Step 0: load macro_final
-monthly_macro = pd.read_csv("/Users/zhangxiaojie/Desktop/MIT 25 Fall/mkt-regimes-pf-allocation/main_project/data/macro_final/final_macro.csv", 
-                            index_col=0, parse_dates=True)
+# Step 0: load macro_final (using relative paths)
+from pathlib import Path
+
+# Get base directory relative to this file
+base_dir = Path(__file__).parent.parent.parent.parent
+macro_path = base_dir / "main_project" / "data" / "macro_final" / "final_macro.csv"
+oil_path = base_dir / "main_project" / "data" / "macro_processed" / "daily_factors" / "daily_wti.csv"
+
+monthly_macro = pd.read_csv(macro_path, index_col=0, parse_dates=True)
 
 # Step 1: load daily oil
-daily_oil = load_daily_oil("/Users/zhangxiaojie/Desktop/MIT 25 Fall/mkt-regimes-pf-allocation/main_project/data/macro_processed/daily_factors/daily_wti.csv")
+daily_oil = load_daily_oil(str(oil_path))
 
 # Step 2: create MIDAS oil factor
 oil_midas = make_midas_oil_factor(daily_oil, theta=0.03, K=60)
