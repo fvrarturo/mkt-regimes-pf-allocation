@@ -1,0 +1,64 @@
+K,AIC,BIC,log_likelihood,n_params,n_samples,combination,variables,n_variables,best_AIC,best_BIC
+2,3712.471411581288,3789.594752297342,-1837.235705790644,19,428,all_4vars,"growth_factor, inflation_factor, monetary_policy_factor, market_volatility_factor",4,False,False
+3,3340.0902060448593,3469.9821483034766,-1638.0451030224297,32,428,all_4vars,"growth_factor, inflation_factor, monetary_policy_factor, market_volatility_factor",4,False,False
+4,3046.7367098776663,3237.5155000700106,-1476.3683549388331,47,428,all_4vars,"growth_factor, inflation_factor, monetary_policy_factor, market_volatility_factor",4,False,False
+5,2932.479966032453,3192.263850549688,-1402.2399830162265,64,428,all_4vars,"growth_factor, inflation_factor, monetary_policy_factor, market_volatility_factor",4,False,False
+6,2753.795276420252,3090.702501653541,-1293.897638210126,83,428,all_4vars,"growth_factor, inflation_factor, monetary_policy_factor, market_volatility_factor",4,False,False
+7,2725.7205373569045,3147.8693496974115,-1258.8602686784523,104,428,all_4vars,"growth_factor, inflation_factor, monetary_policy_factor, market_volatility_factor",4,False,False
+8,2529.405285915642,3044.91393175453,-1137.702642957821,127,428,all_4vars,"growth_factor, inflation_factor, monetary_policy_factor, market_volatility_factor",4,False,True
+9,2558.4297396255724,3175.4164653540056,-1127.2148698127862,152,428,all_4vars,"growth_factor, inflation_factor, monetary_policy_factor, market_volatility_factor",4,False,False
+10,2413.4491065438597,3140.032158553001,-1027.7245532719298,179,428,all_4vars,"growth_factor, inflation_factor, monetary_policy_factor, market_volatility_factor",4,True,False
+2,1889.5379497258034,1934.188304877203,-933.7689748629017,11,428,2vars_growth_inflation,"growth_factor, inflation_factor",2,False,True
+3,1865.4554790485977,1946.6379429602337,-912.7277395242988,20,428,2vars_growth_inflation,"growth_factor, inflation_factor",2,False,False
+4,1823.846489692682,1949.6793087557178,-880.923244846341,31,428,2vars_growth_inflation,"growth_factor, inflation_factor",2,False,False
+5,1797.2711915685377,1975.8726121741367,-854.6355957842688,44,428,2vars_growth_inflation,"growth_factor, inflation_factor",2,True,False
+6,1811.1202608367726,2050.6085293760984,-846.5601304183863,59,428,2vars_growth_inflation,"growth_factor, inflation_factor",2,False,False
+7,1835.7002644305535,2144.19362729477,-841.8501322152767,76,428,2vars_growth_inflation,"growth_factor, inflation_factor",2,False,False
+8,1842.5193877874437,2228.1360913677145,-826.2596938937219,95,428,2vars_growth_inflation,"growth_factor, inflation_factor",2,False,False
+9,1871.206698763447,2342.0649894509356,-819.6033493817235,116,428,2vars_growth_inflation,"growth_factor, inflation_factor",2,False,False
+10,1902.070478848866,2466.288603034736,-812.035239424433,139,428,2vars_growth_inflation,"growth_factor, inflation_factor",2,False,False
+2,1385.4654281045475,1430.1157832559472,-681.7327140522738,11,428,2vars_growth_monetary_policy,"growth_factor, monetary_policy_factor",2,False,False
+3,1313.1425396641027,1394.3250035757387,-636.5712698320514,20,428,2vars_growth_monetary_policy,"growth_factor, monetary_policy_factor",2,False,False
+4,828.0971624148515,953.9299814778872,-383.04858120742574,31,428,2vars_growth_monetary_policy,"growth_factor, monetary_policy_factor",2,False,False
+5,682.8242128404784,861.4256334460774,-297.4121064202392,44,428,2vars_growth_monetary_policy,"growth_factor, monetary_policy_factor",2,False,True
+6,691.1999475361174,930.6882160754434,-286.5999737680587,59,428,2vars_growth_monetary_policy,"growth_factor, monetary_policy_factor",2,False,False
+7,613.6032240708023,922.0965869350189,-230.80161203540118,76,428,2vars_growth_monetary_policy,"growth_factor, monetary_policy_factor",2,False,False
+8,495.466382927403,881.0830865076737,-152.7331914637015,95,428,2vars_growth_monetary_policy,"growth_factor, monetary_policy_factor",2,False,False
+9,522.9640702381871,993.8223609256755,-145.48203511909355,116,428,2vars_growth_monetary_policy,"growth_factor, monetary_policy_factor",2,False,False
+10,463.2995071432231,1027.5176313290929,-92.64975357161156,139,428,2vars_growth_monetary_policy,"growth_factor, monetary_policy_factor",2,True,False
+2,1814.967970994523,1859.6183261459228,-896.4839854972615,11,428,2vars_growth_market_volatility,"growth_factor, market_volatility_factor",2,False,False
+3,1747.6062664979606,1828.7887304095966,-853.8031332489803,20,428,2vars_growth_market_volatility,"growth_factor, market_volatility_factor",2,False,False
+4,1496.270741568876,1622.1035606319117,-717.135370784438,31,428,2vars_growth_market_volatility,"growth_factor, market_volatility_factor",2,False,False
+5,1422.3483636825451,1600.9497842881442,-667.1741818412726,44,428,2vars_growth_market_volatility,"growth_factor, market_volatility_factor",2,False,True
+6,1385.1341636654506,1624.6224322047765,-633.5670818327253,59,428,2vars_growth_market_volatility,"growth_factor, market_volatility_factor",2,True,False
+7,1391.639315678716,1700.1326785429326,-619.819657839358,76,428,2vars_growth_market_volatility,"growth_factor, market_volatility_factor",2,False,False
+8,1445.9772758473903,1831.593979427661,-627.9886379236951,95,428,2vars_growth_market_volatility,"growth_factor, market_volatility_factor",2,False,False
+9,1442.6329353982667,1913.491226085755,-605.3164676991333,116,428,2vars_growth_market_volatility,"growth_factor, market_volatility_factor",2,False,False
+10,1456.948481695993,2021.1666058818628,-589.4742408479965,139,428,2vars_growth_market_volatility,"growth_factor, market_volatility_factor",2,False,False
+2,1506.7437556182203,1551.39411076962,-742.3718778091102,11,428,2vars_inflation_monetary_policy,"inflation_factor, monetary_policy_factor",2,False,False
+3,1079.293641592145,1160.476105503781,-519.6468207960725,20,428,2vars_inflation_monetary_policy,"inflation_factor, monetary_policy_factor",2,False,False
+4,898.0779516358986,1023.9107706989342,-418.0389758179493,31,428,2vars_inflation_monetary_policy,"inflation_factor, monetary_policy_factor",2,False,False
+5,757.1086854683639,935.710106073963,-334.55434273418194,44,428,2vars_inflation_monetary_policy,"inflation_factor, monetary_policy_factor",2,False,True
+6,834.4951231426456,1073.9833916819716,-358.2475615713228,59,428,2vars_inflation_monetary_policy,"inflation_factor, monetary_policy_factor",2,False,False
+7,711.2204247526904,1019.713787616907,-279.6102123763452,76,428,2vars_inflation_monetary_policy,"inflation_factor, monetary_policy_factor",2,False,False
+8,641.8266086324346,1027.4433122127052,-225.9133043162173,95,428,2vars_inflation_monetary_policy,"inflation_factor, monetary_policy_factor",2,False,False
+9,600.1825555410293,1071.0408462285177,-184.09127777051464,116,428,2vars_inflation_monetary_policy,"inflation_factor, monetary_policy_factor",2,False,False
+10,554.5608011206065,1118.7789253064761,-138.28040056030324,139,428,2vars_inflation_monetary_policy,"inflation_factor, monetary_policy_factor",2,True,False
+2,2000.2501207503842,2044.900475901784,-989.1250603751921,11,428,2vars_inflation_market_volatility,"inflation_factor, market_volatility_factor",2,False,False
+3,1829.428069231999,1910.610533143635,-894.7140346159995,20,428,2vars_inflation_market_volatility,"inflation_factor, market_volatility_factor",2,False,False
+4,1747.5245856555355,1873.3574047185712,-842.7622928277677,31,428,2vars_inflation_market_volatility,"inflation_factor, market_volatility_factor",2,False,True
+5,1715.372791526009,1893.974212131608,-813.6863957630045,44,428,2vars_inflation_market_volatility,"inflation_factor, market_volatility_factor",2,False,False
+6,1694.8494152800238,1934.3376838193499,-788.4247076400119,59,428,2vars_inflation_market_volatility,"inflation_factor, market_volatility_factor",2,False,False
+7,1667.5427354407216,1976.0360983049382,-757.7713677203608,76,428,2vars_inflation_market_volatility,"inflation_factor, market_volatility_factor",2,False,False
+8,1660.4260235450151,2046.0427271252859,-735.2130117725076,95,428,2vars_inflation_market_volatility,"inflation_factor, market_volatility_factor",2,True,False
+9,1685.9534014367412,2156.8116921242295,-726.9767007183706,116,428,2vars_inflation_market_volatility,"inflation_factor, market_volatility_factor",2,False,False
+10,1701.126440860391,2265.344565046261,-711.5632204301955,139,428,2vars_inflation_market_volatility,"inflation_factor, market_volatility_factor",2,False,False
+2,1674.7709888013892,1719.421343952789,-826.3854944006946,11,428,2vars_market_volatility_monetary_policy,"monetary_policy_factor, market_volatility_factor",2,False,False
+3,1033.225768902933,1114.4082328145687,-496.6128844514664,20,428,2vars_market_volatility_monetary_policy,"monetary_policy_factor, market_volatility_factor",2,False,False
+4,804.9171464029279,930.7499654659636,-371.45857320146393,31,428,2vars_market_volatility_monetary_policy,"monetary_policy_factor, market_volatility_factor",2,False,False
+5,638.3632808981293,816.9647015037284,-275.1816404490647,44,428,2vars_market_volatility_monetary_policy,"monetary_policy_factor, market_volatility_factor",2,False,False
+6,607.9378212284239,847.42608976775,-244.96891061421198,59,428,2vars_market_volatility_monetary_policy,"monetary_policy_factor, market_volatility_factor",2,False,False
+7,648.0443340416704,956.5376969058868,-248.02216702083518,76,428,2vars_market_volatility_monetary_policy,"monetary_policy_factor, market_volatility_factor",2,False,False
+8,345.7011523246981,731.3178559049688,-77.85057616234906,95,428,2vars_market_volatility_monetary_policy,"monetary_policy_factor, market_volatility_factor",2,True,True
+9,405.10760083240564,875.9658915198941,-86.55380041620282,116,428,2vars_market_volatility_monetary_policy,"monetary_policy_factor, market_volatility_factor",2,False,False
+10,399.2727879595967,963.4909121454664,-60.636393979798356,139,428,2vars_market_volatility_monetary_policy,"monetary_policy_factor, market_volatility_factor",2,False,False

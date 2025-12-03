@@ -1,101 +1,93 @@
-# HMM Regime Detection with Macro Variables
+# Systematic HMM Regime Detection
 
-This module implements **Gaussian Hidden Markov Models (HMM)** for detecting macroeconomic regimes using different combinations of macro variables.
+This module implements **systematic testing** of Gaussian Hidden Markov Models (HMM) for detecting macroeconomic regimes using different combinations of macro variables.
 
 ## Overview
 
-Three HMM models are implemented and compared:
-1. **4 Variables**: Growth + Inflation + Policy + Volatility
-2. **2 Variables (Optimal)**: Growth + Policy (best statistical fit)
-3. **2 Variables (Growth+Inflation)**: Growth + Inflation (aligns with 2×2 quadrants)
+The code systematically tests:
+- **Variable combinations**: All 4 variables + all 6 combinations of 2 variables
+- **Regime numbers**: K = 2, 3, 4, 5, 6
+- **Comparison criteria**: AIC and BIC
+
+## Variable Combinations Tested
+
+### All 4 Variables
+- `growth_factor`, `inflation_factor`, `monetary_policy_factor`, `market_volatility_factor`
+
+### All 2-Variable Combinations (6 total)
+1. `growth_factor` + `inflation_factor`
+2. `growth_factor` + `monetary_policy_factor`
+3. `growth_factor` + `market_volatility_factor`
+4. `inflation_factor` + `monetary_policy_factor`
+5. `inflation_factor` + `market_volatility_factor`
+6. `monetary_policy_factor` + `market_volatility_factor`
 
 ## Quick Start
 
-### Run All Models
+### Run Systematic Testing
 
 ```bash
-# 4 Variables Model
 python main.py
-
-# Growth + Policy Model (Optimal)
-python run_growth_policy_model.py
-
-# Growth + Inflation Model  
-python run_growth_inflation_model.py
 ```
+
+This will:
+1. Load macro data from `final_macro.csv`
+2. Test all 7 variable combinations (1 with 4 vars + 6 with 2 vars)
+3. For each combination, test K = 2, 3, 4, 5, 6
+4. Compare all models using AIC and BIC
+5. Save results to `results_systematic/`
+
+## Output Files
+
+### `results_systematic/all_model_results.csv`
+Complete results for all models tested:
+- Combination name
+- Variables used
+- K (number of regimes)
+- AIC, BIC, log-likelihood
+- Number of parameters
+- Flags for best AIC/BIC within each combination
+
+### `results_systematic/model_comparison_summary.csv`
+Summary table showing best K for each variable combination:
+- Best K by AIC
+- Best K by BIC
+- Corresponding AIC/BIC values
+
+### `results_systematic/best_models.csv`
+Overall best models:
+- Best model by AIC (across all combinations and K)
+- Best model by BIC (across all combinations and K)
+
+## Model Selection
+
+Models are compared using:
+- **AIC (Akaike Information Criterion)**: Penalizes complexity less than BIC
+- **BIC (Bayesian Information Criterion)**: Stronger penalty for complexity, prefers simpler models
+
+Lower values indicate better models.
 
 ## File Structure
 
 ```
 HMM_regimes/
-├── main.py                      # 4 variables model
-├── run_growth_policy_model.py   # Growth + Policy model (optimal)
-├── run_growth_inflation_model.py # Growth + Inflation model
-├── hmm_model.py                 # HMM model class
-├── plotting.py                  # Visualization functions (with interpretations)
-├── results.py                   # Statistical tests and results processing
-├── README.md                    # This file
-├── ECONOMIC_ANALYSIS.md         # ⭐ Economic comparison of all models
+├── main.py              # Systematic testing script
+├── hmm_model.py         # HMM model class (flexible variable support)
+├── plotting.py          # Visualization functions
+├── results.py           # Statistical tests and results processing
+├── README.md            # This file
 │
-└── Results folders:
-    ├── results_4vars/           # All 4 variables model results
-    ├── results_2vars_optimal/   # Growth + Policy model (best BIC)
-    └── results_2vars_growth_inflation/  # Growth + Inflation model
+└── results_systematic/  # Output directory
+    ├── all_model_results.csv
+    ├── model_comparison_summary.csv
+    └── best_models.csv
 ```
 
-## Model Comparison
+## Old Code
 
-| Model | Variables | Best K | BIC | Key Finding |
-|-------|-----------|--------|-----|-------------|
-| **4 Variables** | Growth + Inflation + Policy + Volatility | 4 | 3031.83 | Most comprehensive but worst fit |
-| **2 Variables (Optimal)** | Growth + Policy | 4 | **755.37** ⭐ | **Best statistical fit** |
-| **2 Variables (G+I)** | Growth + Inflation | 3 | 1732.42 | Aligns with 2×2 but only 3 regimes |
-
-**Recommendation**: See `ECONOMIC_ANALYSIS.md` for detailed comparison and recommendation.
-
-## Key Features
-
-- **Automatic K Selection**: Tests K=2,3,4 and selects best by BIC
-- **Regime Probabilities**: Soft assignments with uncertainty quantification
-- **Transition Matrix**: Shows regime persistence
-- **Statistical Tests**: t-tests and ANOVA for ERP differences
-- **Plot Interpretations**: All plots include explanatory text
-- **Detailed Statistics**: Growth and inflation statistics for each regime
-
-## Outputs
-
-Each results folder contains:
-- `regime_statistics.csv` - Complete macro and ERP statistics
-- `regime_assignments.csv` - Time series with regime assignments and probabilities
-- `transition_matrix.csv` - Regime transition probabilities
-- `regime_interpretation_plots.png` - How regimes are labeled (with interpretations)
-- `regime_probabilities_time_series.png` - Regime probabilities over time (with interpretations)
-- `transition_matrix_heatmap.png` - Transition matrix visualization (with interpretations)
-- Statistical test results (t-tests, ANOVA)
-
-## Interpretation Method
-
-Regimes are labeled by:
-1. Calculating average macro values for each regime
-2. Comparing to overall median (High if ≥ median, Low otherwise)
-3. Creating descriptive name: "{Growth Level} Growth / {Inflation Level} Inflation"
-
-See `regime_interpretation_plots.png` in each results folder for visual explanation.
-
-## Economic Analysis
-
-See **`ECONOMIC_ANALYSIS.md`** for:
-- Detailed comparison of all three models
-- Economic interpretation of each model
-- Link to 2×2 quadrant findings
-- Recommendation on which model to use
-- Discussion of which macro variables matter most for ERP
+Previous model-specific scripts and results have been moved to:
+- `s12_regimeness_old/regimes/HMM_regimes/`
 
 ## Requirements
 
-- pandas, numpy, scikit-learn, hmmlearn, scipy, matplotlib, seaborn
-
-See `requirements.txt` if available, or install via:
-```bash
-pip install pandas numpy scikit-learn hmmlearn scipy matplotlib seaborn
-```
+- pandas, numpy, scikit-learn, hmmlearn, scipy

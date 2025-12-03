@@ -1,0 +1,8 @@
+combination,variables,n_variables,best_K_AIC,best_AIC,best_K_BIC,best_BIC,AIC_loglik,BIC_loglik
+all_4vars,"growth_factor, inflation_factor, monetary_policy_factor, market_volatility_factor",4,10,2413.4491065438597,8,3044.91393175453,-1027.7245532719298,-1137.702642957821
+2vars_growth_inflation,"growth_factor, inflation_factor",2,5,1797.2711915685377,2,1934.188304877203,-854.6355957842688,-933.7689748629017
+2vars_growth_monetary_policy,"growth_factor, monetary_policy_factor",2,10,463.2995071432231,5,861.4256334460774,-92.64975357161156,-297.4121064202392
+2vars_growth_market_volatility,"growth_factor, market_volatility_factor",2,6,1385.1341636654506,5,1600.9497842881442,-633.5670818327253,-667.1741818412726
+2vars_inflation_monetary_policy,"inflation_factor, monetary_policy_factor",2,10,554.5608011206065,5,935.710106073963,-138.28040056030324,-334.55434273418194
+2vars_inflation_market_volatility,"inflation_factor, market_volatility_factor",2,8,1660.4260235450151,4,1873.3574047185712,-735.2130117725076,-842.7622928277677
+2vars_market_volatility_monetary_policy,"monetary_policy_factor, market_volatility_factor",2,8,345.7011523246981,8,731.3178559049688,-77.85057616234906,-77.85057616234906

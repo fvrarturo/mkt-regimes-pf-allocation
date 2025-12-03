@@ -51,7 +51,8 @@ class HMMRegimeModel:
         n_regimes: int = 3,
         covariance_type: str = 'diag',
         n_iter: int = 200,
-        random_state: int = 42
+        random_state: int = 42,
+        variables: Optional[List[str]] = None
     ):
         """
         Initialize HMM model.
@@ -59,30 +60,44 @@ class HMMRegimeModel:
         Parameters:
         -----------
         n_regimes : int
-            Number of regimes (K = 2, 3, or 4)
+            Number of regimes (K = 2, 3, 4, 5, or 6)
         covariance_type : str
             Type of covariance matrix ('diag', 'full', 'spherical', 'tied')
         n_iter : int
             Maximum number of iterations for EM algorithm
         random_state : int
             Random seed for reproducibility
+        variables : List[str], optional
+            List of variable names to use (e.g., ['growth_factor', 'inflation_factor']).
+            If None, uses all 4 variables.
         """
         self.n_regimes = n_regimes
         self.covariance_type = covariance_type
         self.n_iter = n_iter
         self.random_state = random_state
         
+        # Set variables to use
+        if variables is None:
+            self.variables = [
+                'growth_factor',
+                'inflation_factor',
+                'monetary_policy_factor',
+                'market_volatility_factor'
+            ]
+        else:
+            self.variables = variables
+        
         # Model components
         self.scaler = StandardScaler()
         self.model = None
-        self.feature_names = ['growth', 'inflation', 'policy', 'volatility']
+        self.feature_names = [v.replace('_factor', '') for v in self.variables]
         
         # Results storage
         self.regime_states = None
         self.regime_probs = None
         self.transition_matrix = None
         self.model_metrics = {}
-        
+    
     def prepare_features(
         self,
         data: pd.DataFrame,
@@ -94,29 +109,20 @@ class HMMRegimeModel:
         Parameters:
         -----------
         data : pd.DataFrame
-            DataFrame with columns: growth_factor, inflation_factor,
-            monetary_policy_factor, market_volatility_factor
+            DataFrame with macro factor columns
         fit_scaler : bool
             Whether to fit the scaler (True for training, False for testing)
         
         Returns:
         --------
-        np.ndarray: Standardized feature matrix (n_samples, 4)
+        np.ndarray: Standardized feature matrix (n_samples, n_features)
         """
-        # Extract the 4 macro variables
-        feature_cols = [
-            'growth_factor',
-            'inflation_factor',
-            'monetary_policy_factor',
-            'market_volatility_factor'
-        ]
-        
-        # Check all columns exist
-        missing_cols = [col for col in feature_cols if col not in data.columns]
+        # Check all required columns exist
+        missing_cols = [col for col in self.variables if col not in data.columns]
         if missing_cols:
             raise ValueError(f"Missing required columns: {missing_cols}")
         
-        features = data[feature_cols].values
+        features = data[self.variables].values
         
         # Standardize features
         if fit_scaler:
