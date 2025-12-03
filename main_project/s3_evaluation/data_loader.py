@@ -37,88 +37,119 @@ def load_market_data(base_dir: Optional[Path] = None) -> Tuple[pd.Series, pd.Ser
     return equity_returns, bond_returns, erp
 
 
-def load_macro_features(base_dir: Optional[Path] = None) -> pd.DataFrame:
+def load_all_macro_variables(base_dir: Optional[Path] = None) -> pd.DataFrame:
     """
-    Load macro factor panel (base factors + selected processed series).
+    Load all macro variables from macro_processed_full directories.
+    
+    This includes variables from:
+    - ec_growth/
+    - inflation/
+    - mkt_vol/
+    - mon_policy/
+    
+    Returns:
+    --------
+    pd.DataFrame
+        DataFrame with all macro variables, indexed by date
     """
     base_dir = _get_base_dir(base_dir)
-    macro_path = base_dir / "data" / "macro_final" / "final_macro.csv"
-    macro_df = pd.read_csv(macro_path, parse_dates=["date"]).set_index("date").sort_index()
-
-    cols = ["growth_factor", "inflation_factor", "monetary_policy_factor", "market_volatility_factor"]
-    missing = [c for c in cols if c not in macro_df.columns]
-    if missing:
-        raise ValueError(f"Missing macro columns in final_macro.csv: {missing}")
-
-    macro_df = macro_df[cols].dropna()
-    macro_df.index = macro_df.index.to_period("M").to_timestamp("M")
-
-    selection_dir = base_dir / "data" / "macro_processed_full" / "selection"
-    if selection_dir.exists():
-        selection_features: Dict[str, pd.Series] = {}
-        for csv_path in selection_dir.glob("*.csv"):
-            df = pd.read_csv(csv_path, parse_dates=["date"]).set_index("date").sort_index()
-            if "value" not in df.columns:
+    macro_data_dir = base_dir / "data" / "macro_processed_full"
+    
+    # Define directories and their expected files
+    macro_dirs = {
+        "ec_growth": [
+            "export_price_index_processed.csv",
+            "gdp_processed.csv",
+            "import_price_index_processed.csv",
+            "industrial_production_processed.csv",
+            "real_gdp_processed.csv",
+            "retail_sales_processed.csv",
+            "tot_business_inventories_processed.csv",
+            "unemployment_processed.csv",
+        ],
+        "inflation": [
+            "PCE_price_index_processed.csv",
+            "PPI_inflation_processed.csv",
+            "cpi_processed.csv",
+        ],
+        "mkt_vol": [
+            "10y_2y_spread_processed.csv",
+            "3month_vol_index_sp500_processed.csv",
+            "nasdaq_vol_indx_processed.csv",
+            "nat_fin_condition_indx_processed.csv",
+            "vix_processed.csv",
+            # Also check for monthly versions
+            "10y_2y_spread_processed_monthly.csv",
+            "nat_fin_condition_indx_processed_monthly.csv",
+            "vix_processed_monthly.csv",
+        ],
+        "mon_policy": [
+            "10y_treasury_const_maturity_rate_processed.csv",
+            "fed_reserve_discount_rate_processed.csv",
+            "fedfunds_processed.csv",
+            "m2_real_money_supply_processed.csv",
+        ],
+    }
+    
+    all_data = []
+    
+    for category, files in macro_dirs.items():
+        category_dir = macro_data_dir / category
+        
+        for filename in files:
+            file_path = category_dir / filename
+            
+            if not file_path.exists():
                 continue
-            series = df["value"].resample("M").last().ffill()
-            name = csv_path.stem.split("_processed")[0].replace(" ", "").lower()
-            selection_features[name] = series
-
-        if selection_features:
-            selection_df = pd.DataFrame(selection_features).dropna(how="all")
-            selection_df.index = selection_df.index.to_period("M").to_timestamp("M")
-            macro_df = macro_df.join(selection_df, how="inner")
-
-    return macro_df.dropna()
-
-
-def load_regime_probabilities(base_dir: Optional[Path] = None) -> pd.DataFrame:
-    """
-    Load regime probabilities from the Growth+Policy HMM run.
-    """
-    base_dir = _get_base_dir(base_dir)
-    regime_path = (
-        base_dir
-        / "s1_macro_vars"
-        / "s12_regimeness"
-        / "regimes"
-        / "HMM_regimes"
-        / "results_2vars_optimal"
-        / "regime_assignments.csv"
-    )
-    if not regime_path.exists():
-        raise FileNotFoundError(f"Regime file not found: {regime_path}")
-
-    regime_df = pd.read_csv(regime_path, parse_dates=["date"]).set_index("date").sort_index()
-    regime_df.index = regime_df.index.to_period("M").to_timestamp("M")
-    prob_cols = [c for c in regime_df.columns if c.startswith("prob_R")]
-    if not prob_cols:
-        raise ValueError("No probability columns found in regime assignments.")
-
-    return regime_df[prob_cols + ["regime"]]
-
-
-def load_2x2_regimes(base_dir: Optional[Path] = None) -> pd.DataFrame:
-    """
-    Load 2×2 Growth × Inflation regime assignments.
-    """
-    base_dir = _get_base_dir(base_dir)
-    regime_path = (
-        base_dir
-        / "s1_macro_vars"
-        / "s12_regimeness"
-        / "regimes"
-        / "2x2_regimes"
-        / "results"
-        / "regime_assignments.csv"
-    )
-    if not regime_path.exists():
-        raise FileNotFoundError(f"2x2 regime file not found: {regime_path}")
-
-    regime_df = pd.read_csv(regime_path, parse_dates=["date"]).set_index("date").sort_index()
-    regime_df.index = regime_df.index.to_period("M").to_timestamp("M")
-
-    if "regime" not in regime_df.columns:
-        raise ValueError("2x2 regime assignments must contain a 'regime' column.")
-
-    return regime_df[["regime"]]
+            
+            try:
+                df = pd.read_csv(file_path, parse_dates=["date"])
+                
+                # Use 'value' column if available, otherwise use first numeric column
+                if "value" in df.columns:
+                    value_col = "value"
+                else:
+                    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+                    if not numeric_cols:
+                        continue
+                    value_col = numeric_cols[0]
+                
+                # Create variable name from filename
+                var_name = (
+                    filename.replace("_processed 2.csv", "")
+                    .replace("_processed_monthly.csv", "")
+                    .replace("_processed.csv", "")
+                    .replace(" ", "_")
+                )
+                
+                # Select date and value
+                df_subset = df[["date", value_col]].copy()
+                df_subset.columns = ["date", var_name]
+                
+                # Convert to monthly if not already
+                df_subset["date"] = pd.to_datetime(df_subset["date"])
+                df_subset = df_subset.set_index("date").sort_index()
+                df_subset = df_subset.resample("ME").last().ffill()
+                
+                all_data.append(df_subset)
+                
+            except Exception as e:
+                print(f"Warning: Error loading {filename}: {e}")
+                continue
+    
+    if not all_data:
+        raise ValueError("No macro variables loaded from macro_processed_full")
+    
+    # Combine all dataframes
+    combined_df = pd.concat(all_data, axis=1)
+    combined_df.index = combined_df.index.to_period("M").to_timestamp("M")
+    
+    # Also add base factors from final_macro.csv
+    macro_path = base_dir / "data" / "macro_final" / "final_macro.csv"
+    base_macro = pd.read_csv(macro_path, parse_dates=["date"]).set_index("date").sort_index()
+    base_macro.index = base_macro.index.to_period("M").to_timestamp("M")
+    
+    # Join base factors
+    combined_df = combined_df.join(base_macro, how="inner")
+    
+    return combined_df.dropna(how="all")

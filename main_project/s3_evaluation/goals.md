@@ -1,36 +1,46 @@
 # Step 3 – Trading Strategy Evaluation
 
 ## Objectives
-1. Translate every ERP forecast (regime, extremeness, baseline regression) into the **same** trading rule.
-2. Forecasts update each month: train on history through month *t-1*, predict ERP\_{t+1}.
-3. Run accuracy scenarios (40 %, 60 %, 80 %, 100 %) for macro-driven signals to mimic imperfect macro predictions.
-4. Trade a two-asset portfolio: **S&P 500 vs 3M T-bills** with a fixed mapping from forecast → equity weight.
+1. Evaluate HMM-based trading strategies using growth + inflation regimes (K=4).
+2. Compare different regime determination approaches:
+   - Forecast-based: Uses forecasts at T to determine regime mix at T+1
+   - Actual-based: Uses actual values at T to determine regime mix
+   - Pure prediction: Uses actual T+1 values for regimes (lookahead)
+   - Fixed 50/50 benchmark
+3. Trade a two-asset portfolio: **S&P 500 vs 3M T-bills** with a Z-score based trading rule.
 
 ## Workflow implemented in `main.py`
 1. **Load data**
    - Equity & bond monthly returns, ERP = equity – bond
-   - Macro factors (`growth`, `inflation`, `policy`, `vol`)
-   - HMM regime probabilities (Growth + Policy model)
+   - All macro variables from `macro_processed_full`
+   - Macro forecasts for growth and inflation
 
-2. **Generate ERP forecasts (rolling)**
-   - `full_regression`: expanding-window OLS of ERP\_{t+1} on macro factors.
-   - `regime_hmm`: probability-weighted conditional means per regime.
-   - `extreme_isolation` / `extreme_pca`: classify current macro state via Isolation Forest / PCA distance and use conditional ERP means for extreme vs normal states.
+2. **Generate HMM-based ERP forecasts**
+   - Load HMM model (growth + inflation, K=4) and regression coefficients
+   - For each strategy, determine regime probabilities and compute weighted ERP forecasts
+   - Apply macro variables at time T to get ERP forecast
 
-3. **Accuracy scenarios**
-   - For regime/extremeness forecasts, flip the forecast sign with probability (1 – accuracy) to simulate 40 %, 60 %, 80 % directional accuracy.
-   - Full-sample regression serves as the clean benchmark (100 % scenario).
-
-4. **Trading rule (same for every model)**
-   - Equity weight = `clip(0.5 + 0.25 * zscore(forecast), 10 %, 90 %)`
+3. **Trading rule**
+   - Equity weight = `clip(0.5 + 0.25 * zscore(forecast), 10%, 90%)`
    - Portfolio return = `w_t * r_equity + (1 – w_t) * r_bond`
-   - Benchmark = 50/50 static allocation.
+   - Benchmark = 50/50 static allocation
 
-5. **Evaluation outputs**
-   - `results/strategy_performance_summary.csv` with Sharpe, vol, drawdown, hit rate, turnover.
-   - Strategy-specific CSVs (`*_returns.csv`) plus plots (`cumulative_returns_*.png`, `performance_comparison.png`).
+4. **Evaluation outputs**
+   - `results/strategy_performance_summary.csv` with Sharpe, vol, drawdown, hit rate, turnover
+   - Strategy-specific CSVs (`*_returns.csv`)
+   - Cumulative returns plot (`cumulative_returns_all_strategies.png`)
+   - Performance comparison plot (`performance_comparison_all_strategies.png`)
 
-## Extensibility
-- Drop new forecast series into `base_forecasts` (must be a pd.Series of ERP estimates).
-- Adjust accuracy scenarios in `accuracy_levels`.
-- Modify the weight rule in `trading.py` to test alternative allocation formulas.
+## Strategy Descriptions
+
+### hmm_forecast_based
+Uses forecasts of growth and inflation at time T to determine regime probabilities at T+1, then applies weighted regression coefficients to macro variables at time T.
+
+### hmm_actual_based
+Uses actual values of growth and inflation at time T to determine regime probabilities, then applies weighted regression coefficients to macro variables at time T.
+
+### hmm_pure_prediction
+Uses actual T+1 values of growth and inflation to determine regime probabilities (lookahead), then applies weighted regression coefficients to macro variables at time T. This represents the theoretical upper bound.
+
+### fixed_50_50_benchmark
+Static 50/50 allocation between equity and bonds.

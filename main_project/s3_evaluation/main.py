@@ -2,30 +2,25 @@
 Unified trading strategy evaluation (Step 3).
 
 Workflow:
-1. Load equity/bond returns and macro/regime data.
-2. Build ERP forecasts using:
-   - Rolling linear regression (full-sample baseline)
-   - Regime-conditioned expectation (HMM)
-   - Extremeness-conditioned expectation (Isolation Forest + PCA distance)
-3. Apply accuracy scenarios (40/60/80%) to macro-driven forecasts.
-4. Convert forecasts into portfolio weights (SP500 vs T-Bills) and compute returns.
-5. Save performance summary and optional plots.
+1. Load equity/bond returns and macro data.
+2. Generate HMM-based ERP forecasts using:
+   - Forecast-based: Uses forecasts at T to determine regime mix at T+1
+   - Actual-based: Uses actual values at T to determine regime mix
+   - Pure prediction: Uses actual T+1 values for regimes (lookahead)
+   - Fixed 50/50 benchmark
+3. Convert forecasts into portfolio weights (SP500 vs T-Bills) and compute returns.
+4. Save performance summary and plots.
 """
 
 from pathlib import Path
 
 import pandas as pd
 
-from data_loader import load_market_data, load_macro_features
-from forecasts import fit_conditional_forecaster, generate_macro_forecasts
+from data_loader import load_market_data, load_all_macro_variables
 from performance import compute_hit_rate, compute_performance_metrics, compute_turnover
-from plotting import (
-    plot_cumulative_returns,
-    plot_performance_comparison,
-    plot_cumulative_returns_by_accuracy,
-    export_strategies_by_accuracy
-)
+from plotting import plot_performance_comparison, plot_cumulative_returns_all_strategies
 from trading import run_trading_strategy
+from hmm_forecasts import generate_all_hmm_strategies
 
 START_DATE = pd.Timestamp("2000-01-31")
 RESULTS_DIR = Path(__file__).parent / "results"
@@ -35,30 +30,47 @@ def main() -> None:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     equity_ret, bond_ret, erp = load_market_data()
-    macro_df = load_macro_features()
+    
+    # Load all macro variables for HMM strategies
+    print("\nLoading all macro variables for HMM strategies...")
+    all_macro_df = load_all_macro_variables()
 
     # Align to common date index
-    common_index = equity_ret.index.intersection(macro_df.index)
+    common_index = equity_ret.index.intersection(all_macro_df.index)
     equity_ret = equity_ret.reindex(common_index)
     bond_ret = bond_ret.reindex(common_index)
     erp = erp.reindex(common_index)
-    macro_df = macro_df.reindex(common_index)
+    all_macro_df = all_macro_df.reindex(common_index)
 
-    print("\nFitting conditional regression models...")
-    forecaster = fit_conditional_forecaster(macro_df, erp)
-
-    accuracy_levels = [0.4, 0.6, 0.8, 1.0]
+    # Load forecast data for HMM strategies
+    print("\nLoading macro forecasts for HMM strategies...")
+    forecast_path = Path(__file__).parent / "inputs" / "macro_forecasts.csv"
+    if not forecast_path.exists():
+        raise FileNotFoundError(f"Forecast file not found at {forecast_path}")
+    
+    forecast_df = pd.read_csv(forecast_path, parse_dates=["date"])
+    
+    # Generate HMM-based strategies
+    print("\nGenerating HMM-based strategies...")
+    hmm_strategies = generate_all_hmm_strategies(
+        all_macro_df,
+        forecast_df,
+        base_dir=Path(__file__).parent.parent
+    )
+    
+    # Filter to START_DATE
     scenario_forecasts = {}
-
-    for acc in accuracy_levels:
-        macro_hat = generate_macro_forecasts(macro_df, acc, seed=int(acc * 1000))
-        forecast_dict = forecaster.forecast_all(macro_hat)
-        for model_name, series in forecast_dict.items():
+    for name, series in hmm_strategies.items():
+        if len(series) > 0:
             series = series[series.index >= START_DATE]
-            key = model_name if acc >= 0.999 else f"{model_name}_acc_{int(acc * 100)}"
-            scenario_forecasts[key] = series
+            scenario_forecasts[name] = series
 
     benchmark_returns = 0.5 * equity_ret + 0.5 * bond_ret
+    
+    # Add fixed 50/50 benchmark forecast (zero forecast, will result in 0.5 weight)
+    benchmark_forecast = pd.Series(0.0, index=common_index[common_index >= START_DATE])
+    scenario_forecasts["fixed_50_50_benchmark"] = benchmark_forecast
+    
     strategies = {}
     metrics_rows = []
 
@@ -97,18 +109,11 @@ def main() -> None:
     performance_df = pd.DataFrame(metrics_rows).sort_values("sharpe_ratio", ascending=False)
     performance_df.to_csv(RESULTS_DIR / "strategy_performance_summary.csv", index=False)
 
-    # Plot cumulative returns grouped by accuracy level
-    plot_cumulative_returns_by_accuracy(
-        strategies,
-        benchmark_returns,
-        output_dir=RESULTS_DIR
-    )
+    # Cumulative returns plot
+    plot_cumulative_returns_all_strategies(strategies, benchmark_returns=benchmark_returns, output_dir=RESULTS_DIR)
 
-    # Performance comparison plots grouped by accuracy level
+    # Performance comparison plot
     plot_performance_comparison(strategies, benchmark_returns=benchmark_returns, output_dir=RESULTS_DIR)
-
-    # Export CSV files grouped by accuracy level
-    export_strategies_by_accuracy(strategies, output_dir=RESULTS_DIR)
 
     print("\nEvaluation complete.")
     print(performance_df.to_string(index=False))
