@@ -1,5 +1,0 @@
-regime,regime_name,coefficient_mean,coefficient_std,t_statistic_mean,t_statistic_std,p_value_mean,r_squared_mean,r_squared_std,n_observations_mean
-0,Goldilocks,0.0013,0.0026,0.5075,1.0693,0.398,-0.0067,0.016,333.85
-1,Overheating,-0.0,0.0018,-0.0287,0.8076,0.6235,-0.0024,0.0046,354.75
-2,Stagflation,-0.0005,0.0031,-0.2466,1.4051,0.4315,-0.006,0.007,363.8167
-3,Slowdown,0.0014,0.0035,0.5622,1.512,0.228,-0.0019,0.0037,369.4167

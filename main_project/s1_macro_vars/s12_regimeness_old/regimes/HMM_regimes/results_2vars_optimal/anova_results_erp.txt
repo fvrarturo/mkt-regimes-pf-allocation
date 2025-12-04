@@ -1,9 +1,0 @@
-ANOVA F-Test for ERP Across HMM Regimes
-==================================================
-
-F-statistic: 5.1017
-P-value: 0.001772
-Significant at 5% level: True
-
-Number of regimes tested: 4
-Total observations: 428
