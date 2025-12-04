@@ -75,6 +75,7 @@ def main():
     analyzer.load_macro_variables()
     analyzer.load_erp()
     analyzer.load_hmm_regimes()
+    analyzer.load_2x2_regimes()  # Also load 2x2 regimes
     
     # Step 2: Run regressions
     print("\n" + "="*80)

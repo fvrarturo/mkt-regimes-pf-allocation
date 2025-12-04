@@ -1,352 +1,260 @@
 """
-Master orchestration script for Section 2: Macro Forecasting
-
-This script runs the complete forecasting pipeline to predict Growth (Industrial Production)
-and Inflation using multiple models:
-1. TVP-VAR (Time-Varying Parameter VAR)
-2. XGBoost (Macro-only and Macro+Sentiment)
-3. LSTM (Long Short-Term Memory)
-4. MIDAS TVP-VAR (with daily oil prices)
-5. Cross-model comparison and evaluation
-
-As per goals.md, the goal is to forecast Growth and Inflation at horizons h ∈ {1, 3, 6} months
-and compare model performance using RMSE, MAE, and statistical tests.
-
-Execution order:
-1. TVP-VAR forecasting (baseline)
-2. XGBoost forecasting (macro-only and macro+sentiment)
-3. LSTM forecasting
-4. MIDAS TVP-VAR forecasting
-5. Cross-model comparison and evaluation
+Main orchestration script for ERP forecasting and trading.
 """
 
-import sys
-import subprocess
-import os
+import pandas as pd
+import numpy as np
 from pathlib import Path
-from typing import Optional
+from typing import Dict
+import sys
 
-# Add current directory to path for imports
-SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
+# Add current directory to path
+sys.path.insert(0, str(Path(__file__).parent))
 
-# Try to import path_utils if available
-try:
-    from path_utils import get_project_root
-except ImportError:
-    # Fallback if path_utils not available
-    def get_project_root(file_path):
-        """Get project root by finding main_project directory."""
-        path = Path(file_path).resolve()
-        while path.parent != path:
-            if path.name == "main_project":
-                return path.parent
-            path = path.parent
-        # Fallback: assume we're in main_project/s2_forecasts
-        return Path(__file__).resolve().parent.parent.parent
+from data_loader import (
+    load_erp_data,
+    load_market_data,
+    load_macro_features,
+    load_sentiment_groq,
+    load_sentiment_openai
+)
+from models.xgboost_model import XGBoostERPForecaster
+from models.lstm_model import LSTMerpForecaster
+from trading import run_trading_strategy
+from performance import compute_performance_metrics
+from plotting import plot_cumulative_returns_all_strategies, plot_performance_comparison
 
 
-def run_script(
-    script_path: Path, 
-    description: str, 
-    cwd: Optional[Path] = None, 
-    env: Optional[dict] = None
-) -> bool:
-    """
-    Run a Python script and return True if successful.
-    
-    Parameters:
-    -----------
-    script_path : Path
-        Path to the Python script to run
-    description : str
-        Description of what the script does (for logging)
-    cwd : Path, optional
-        Working directory for the script
-    env : dict, optional
-        Environment variables to set (will be merged with current env)
-    
-    Returns:
-    --------
-    bool
-        True if script executed successfully, False otherwise
-    """
-    print("\n" + "="*80)
-    print(f"RUNNING: {description}")
-    print("="*80)
-    print(f"Script: {script_path}")
-    
-    if not script_path.exists():
-        print(f"ERROR: Script not found at {script_path}")
-        return False
-    
-    try:
-        # Prepare environment
-        script_env = os.environ.copy()
-        if env:
-            script_env.update(env)
-        
-        # Ensure PYTHONPATH includes section directory for path_utils imports
-        try:
-            section_dir = get_project_root(script_path) / "s2_forecasts"
-            pythonpath = script_env.get("PYTHONPATH", "")
-            if pythonpath:
-                pythonpath = f"{section_dir}{os.pathsep}{pythonpath}"
-            else:
-                pythonpath = str(section_dir)
-            script_env["PYTHONPATH"] = pythonpath
-        except Exception:
-            # If path_utils fails, just use current directory
-            pass
-        
-        # Run the script
-        result = subprocess.run(
-            [sys.executable, str(script_path)],
-            cwd=str(cwd) if cwd else str(script_path.parent),
-            env=script_env,
-            check=True,
-            capture_output=False  # Show output in real-time
-        )
-        print(f"\n✓ Successfully completed: {description}")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"\n✗ Error running {description}")
-        print(f"Exit code: {e.returncode}")
-        return False
-    except Exception as e:
-        print(f"\n✗ Unexpected error running {description}")
-        print(f"Error: {str(e)}")
-        return False
+# Configuration
+START_DATE = pd.Timestamp("2002-03-31")
+RESULTS_DIR = Path(__file__).parent / "results"
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def main():
-    """Main orchestration function."""
+    """Main function."""
     print("="*80)
-    print("SECTION 2: MACRO FORECASTING - MASTER PIPELINE")
-    print("="*80)
-    print("\nThis script runs the complete forecasting pipeline to predict")
-    print("Growth (Industrial Production) and Inflation using multiple models.")
-    print("\nForecast Models:")
-    print("  1. TVP-VAR (Time-Varying Parameter VAR)")
-    print("  2. XGBoost (Macro-only and Macro+Sentiment)")
-    print("  3. LSTM (Long Short-Term Memory)")
-    print("  4. MIDAS TVP-VAR (with daily oil prices)")
-    print("  5. Cross-model comparison and evaluation")
+    print("ERP FORECASTING AND TRADING STRATEGY EVALUATION")
     print("="*80)
     
-    # Get section directory - this script is in main_project/s2_forecasts/main.py
-    script_path = Path(__file__).resolve()
-    # Script is at: .../main_project/s2_forecasts/main.py
-    # So section_dir is: .../main_project/s2_forecasts
-    section_dir = script_path.parent
+    # Load data
+    print("\nLoading data...")
+    erp = load_erp_data()
+    equity_ret, bond_ret = load_market_data()
+    macro_df = load_macro_features()
     
-    # Base dir is main_project (parent of section_dir)
-    base_dir = section_dir.parent
+    # Try to load sentiment data
+    try:
+        sentiment_groq = load_sentiment_groq()
+        print("✓ Loaded Groq sentiment data")
+    except Exception as e:
+        print(f"⚠ Warning: Could not load Groq sentiment: {e}")
+        sentiment_groq = None
     
-    print(f"\nProject root: {base_dir}")
-    print(f"Section directory: {section_dir}")
+    try:
+        sentiment_openai = load_sentiment_openai()
+        print("✓ Loaded OpenAI sentiment data")
+    except Exception as e:
+        print(f"⚠ Warning: Could not load OpenAI sentiment: {e}")
+        sentiment_openai = None
     
-    # Track success/failure
-    results = {}
+    # Align all data
+    print("\nAligning data...")
+    common_dates = erp.index.intersection(macro_df.index).intersection(equity_ret.index).intersection(bond_ret.index)
+    if sentiment_groq is not None:
+        common_dates = common_dates.intersection(sentiment_groq.index)
+    if sentiment_openai is not None:
+        common_dates = common_dates.intersection(sentiment_openai.index)
     
-    # ========================================================================
-    # STEP 1: TVP-VAR Forecasting
-    # ========================================================================
-    print("\n\n" + "#"*80)
-    print("# STEP 1: TVP-VAR FORECASTING")
-    print("#"*80)
-    print("\nBaseline model: 4-variable TVP-VAR (growth, inflation, policy, volatility)")
-    print("Forecast horizons: 1, 3, 6 months")
+    erp = erp.reindex(common_dates)
+    macro_df = macro_df.reindex(common_dates)
+    equity_ret = equity_ret.reindex(common_dates)
+    bond_ret = bond_ret.reindex(common_dates)
+    if sentiment_groq is not None:
+        sentiment_groq = sentiment_groq.reindex(common_dates)
+    if sentiment_openai is not None:
+        sentiment_openai = sentiment_openai.reindex(common_dates)
     
-    tvpvar_main = section_dir / "s21_macro" / "main.py"
-    results['tvpvar'] = run_script(
-        tvpvar_main,
-        "TVP-VAR Forecasting (Baseline)",
-        cwd=section_dir
-    )
+    print(f"✓ Aligned data: {len(common_dates)} observations")
+    print(f"  Date range: {common_dates.min()} to {common_dates.max()}")
     
-    if not results['tvpvar']:
-        print("\n⚠️  Warning: TVP-VAR forecasting failed. Continuing with other models...")
-    
-    # ========================================================================
-    # STEP 2: XGBoost Forecasting
-    # ========================================================================
-    print("\n\n" + "#"*80)
-    print("# STEP 2: XGBOOST FORECASTING")
-    print("#"*80)
-    print("\nGradient boosting models:")
-    print("  - Macro-only features")
-    print("  - Macro + Sentiment features")
-    print("Forecast horizons: 1, 3, 6 months")
-    
-    xgboost_main = section_dir / "s22_ml_based" / "main.py"
-    results['xgboost'] = run_script(
-        xgboost_main,
-        "XGBoost Forecasting (Macro-only and Macro+Sentiment)",
-        cwd=section_dir
-    )
-    
-    if not results['xgboost']:
-        print("\n⚠️  Warning: XGBoost forecasting failed. Continuing with other models...")
-    
-    # ========================================================================
-    # STEP 3: LSTM Forecasting
-    # ========================================================================
-    print("\n\n" + "#"*80)
-    print("# STEP 3: LSTM FORECASTING")
-    print("#"*80)
-    print("\nLong Short-Term Memory neural network:")
-    print("  - Multivariate sequence model")
-    print("  - Joint prediction of Growth and Inflation")
-    print("Forecast horizons: 1, 3, 6 months")
-    
-    lstm_main = section_dir / "s22_ml_based" / "lstm_main.py"
-    results['lstm'] = run_script(
-        lstm_main,
-        "LSTM Forecasting (Neural Network)",
-        cwd=section_dir
-    )
-    
-    if not results['lstm']:
-        print("\n⚠️  Warning: LSTM forecasting failed. Continuing with other models...")
-    
-    # ========================================================================
-    # STEP 4: MIDAS TVP-VAR Forecasting
-    # ========================================================================
-    print("\n\n" + "#"*80)
-    print("# STEP 4: MIDAS TVP-VAR FORECASTING")
-    print("#"*80)
-    print("\nMIDAS-augmented TVP-VAR:")
-    print("  - Combines monthly macro factors with daily oil prices")
-    print("  - Exponential aggregation of high-frequency data")
-    print("Forecast horizons: 1, 3, 6 months")
-    
-    midas_main = section_dir / "s23_Midas" / "main_midas.py"
-    results['midas'] = run_script(
-        midas_main,
-        "MIDAS TVP-VAR Forecasting (with Oil Prices)",
-        cwd=section_dir
-    )
-    
-    if not results['midas']:
-        print("\n⚠️  Warning: MIDAS TVP-VAR forecasting failed. Continuing with comparison...")
-    
-    # ========================================================================
-    # STEP 5: Cross-Model Comparison
-    # ========================================================================
-    print("\n\n" + "#"*80)
-    print("# STEP 5: CROSS-MODEL COMPARISON")
-    print("#"*80)
-    print("\nThis step compares all models and generates:")
-    print("  - Performance comparison tables (RMSE, MAE)")
-    print("  - Statistical tests (Diebold-Mariano)")
-    print("  - Visualizations and summary reports")
-    
-    comparison_main = section_dir / "cross_comparison" / "main.py"
-    results['comparison'] = run_script(
-        comparison_main,
-        "Cross-Model Comparison and Evaluation",
-        cwd=section_dir
-    )
-    
-    if not results['comparison']:
-        print("\n⚠️  Warning: Cross-model comparison failed.")
-        print("Individual model results are still available.")
-    
-    # ========================================================================
-    # SUMMARY
-    # ========================================================================
-    print("\n\n" + "="*80)
-    print("EXECUTION SUMMARY")
+    # Generate forecasts
+    print("\n" + "="*80)
+    print("GENERATING ERP FORECASTS")
     print("="*80)
     
-    print("\nModel Results:")
-    model_names = {
-        'tvpvar': 'TVP-VAR',
-        'xgboost': 'XGBoost',
-        'lstm': 'LSTM',
-        'midas': 'MIDAS TVP-VAR',
-        'comparison': 'Cross-Model Comparison'
-    }
+    strategies = {}
     
-    for component, success in results.items():
-        status = "✓ SUCCESS" if success else "✗ FAILED"
-        model_name = model_names.get(component, component)
-        print(f"  {model_name:30s}: {status}")
+    # 1. XGBoost (macro only)
+    print("\n1. Training XGBoost (macro only)...")
+    try:
+        xgb_model = XGBoostERPForecaster(
+            n_lags=12,
+            early_stopping_rounds=20
+        )
+        xgb_forecasts = xgb_model.forecast_rolling(
+            erp, macro_df, sentiment_df=None, start_date=START_DATE
+        )
+        strategies['xgboost'] = {
+            'forecast': xgb_forecasts,
+            'model': xgb_model
+        }
+        print(f"✓ Generated {len(xgb_forecasts.dropna())} forecasts")
+    except Exception as e:
+        print(f"✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
     
-    all_success = all(results.values())
-    at_least_one_model = any([
-        results.get('tvpvar', False),
-        results.get('xgboost', False),
-        results.get('lstm', False),
-        results.get('midas', False)
-    ])
+    # 2. LSTM
+    print("\n2. Training LSTM...")
+    try:
+        lstm_model = LSTMerpForecaster(sequence_length=12)
+        lstm_forecasts = lstm_model.forecast_rolling(
+            erp, macro_df, sentiment_df=None, start_date=START_DATE
+        )
+        strategies['lstm'] = {
+            'forecast': lstm_forecasts,
+            'model': lstm_model
+        }
+        print(f"✓ Generated {len(lstm_forecasts.dropna())} forecasts")
+    except Exception as e:
+        print(f"✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
     
-    if all_success:
-        print("\n" + "="*80)
-        print("✓ ALL FORECASTING MODELS COMPLETED SUCCESSFULLY")
-        print("="*80)
-        print("\nKey outputs generated:")
-        
-        print("\n1. TVP-VAR Results:")
-        print("   - s21_macro/results/growth_forecast_metrics.csv")
-        print("   - s21_macro/results/inflation_forecast_metrics.csv")
-        print("   - s21_macro/results/forecast_performance_table.csv")
-        
-        print("\n2. XGBoost Results:")
-        print("   - s22_ml_based/results/xgboost/growth_factor_metrics_xgboost.csv")
-        print("   - s22_ml_based/results/xgboost/inflation_factor_metrics_xgboost.csv")
-        print("   - s22_ml_based/results/xgboost/feature_importance_*.png")
-        
-        print("\n3. LSTM Results:")
-        print("   - s22_ml_based/results/lstm/growth_factor_metrics_lstm.csv")
-        print("   - s22_ml_based/results/lstm/inflation_factor_metrics_lstm.csv")
-        print("   - s22_ml_based/results/lstm/learning_curve_*.png")
-        
-        print("\n4. MIDAS TVP-VAR Results:")
-        print("   - s23_Midas/results_midas/growth_forecast_metrics.csv")
-        print("   - s23_Midas/results_midas/inflation_forecast_metrics.csv")
-        
-        print("\n5. Cross-Model Comparison:")
-        print("   - cross_comparison/results/performance_comparison_table.csv")
-        print("   - cross_comparison/results/model_comparison_report.md")
-        print("   - cross_comparison/results/performance_*.png")
-        
-        print("\n" + "="*80)
-        print("Next Steps:")
-        print("="*80)
-        print("1. Review model_comparison_report.md for best model identification")
-        print("2. Check performance_comparison_table.csv for RMSE/MAE by horizon")
-        print("3. Review Diebold-Mariano test results for statistical significance")
-        print("4. Use best-performing model for trading strategy evaluation (Section 3)")
-        print("="*80)
-    elif at_least_one_model:
-        print("\n" + "="*80)
-        print("⚠️  PARTIAL SUCCESS - SOME MODELS COMPLETED")
-        print("="*80)
-        print("\nAt least one forecasting model completed successfully.")
-        print("Review individual model results in their respective result directories.")
-        print("\nFailed components:")
-        for component, success in results.items():
-            if not success:
-                model_name = model_names.get(component, component)
-                print(f"  - {model_name}")
-        print("="*80)
-    else:
-        print("\n" + "="*80)
-        print("✗ ALL FORECASTING MODELS FAILED")
-        print("="*80)
-        print("\nPlease review the errors above and fix issues before proceeding.")
-        print("The forecasting pipeline requires at least one model to complete")
-        print("successfully for trading strategy evaluation.")
-        print("="*80)
-        return 1
+    # 3. XGBoost with Groq sentiment
+    if sentiment_groq is not None:
+        print("\n3. Training XGBoost with Groq sentiment...")
+        try:
+            xgb_groq_model = XGBoostERPForecaster(
+                n_lags=12,
+                early_stopping_rounds=20
+            )
+            xgb_groq_forecasts = xgb_groq_model.forecast_rolling(
+                erp, macro_df, sentiment_df=sentiment_groq, start_date=START_DATE
+            )
+            strategies['xgboost_groq'] = {
+                'forecast': xgb_groq_forecasts,
+                'model': xgb_groq_model
+            }
+            print(f"✓ Generated {len(xgb_groq_forecasts.dropna())} forecasts")
+        except Exception as e:
+            print(f"✗ Error: {e}")
+            import traceback
+            traceback.print_exc()
     
-    return 0
+    # 4. XGBoost with OpenAI sentiment
+    if sentiment_openai is not None:
+        print("\n4. Training XGBoost with OpenAI sentiment...")
+        try:
+            xgb_openai_model = XGBoostERPForecaster(
+                n_lags=12,
+                early_stopping_rounds=20
+            )
+            xgb_openai_forecasts = xgb_openai_model.forecast_rolling(
+                erp, macro_df, sentiment_df=sentiment_openai, start_date=START_DATE
+            )
+            strategies['xgboost_openai'] = {
+                'forecast': xgb_openai_forecasts,
+                'model': xgb_openai_model
+            }
+            print(f"✓ Generated {len(xgb_openai_forecasts.dropna())} forecasts")
+        except Exception as e:
+            print(f"✗ Error: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    # Run trading strategies
+    print("\n" + "="*80)
+    print("RUNNING TRADING STRATEGIES")
+    print("="*80)
+    
+    strategy_results = {}
+    metrics_rows = []
+    
+    for name, strategy_data in strategies.items():
+        if 'forecast' not in strategy_data:
+            continue
+        
+        forecast = strategy_data['forecast']
+        forecast = forecast[forecast.index >= START_DATE]
+        
+        if forecast.empty:
+            continue
+        
+        print(f"\nRunning trading strategy: {name}")
+        result = run_trading_strategy(
+            name=name,
+            forecasts=forecast,
+            equity_returns=equity_ret,
+            bond_returns=bond_ret,
+            min_weight=0.1,
+            max_weight=0.9
+        )
+        
+        strategy_results[name] = result
+        
+        # Compute metrics
+        metrics = compute_performance_metrics(result.returns)
+        metrics['strategy'] = name
+        metrics_rows.append(metrics)
+        
+        # Save individual time series (with _monthly suffix)
+        output_file = RESULTS_DIR / f"{name}_returns_monthly.csv"
+        if not result.returns.empty and len(result.returns) > 0:
+            pd.DataFrame({
+                'date': result.returns.index,
+                'return': result.returns.values,
+                'weight': result.weights.values,
+                'forecast': result.forecast.values
+            }).to_csv(output_file, index=False)
+            print(f"✓ Saved to {output_file}")
+        else:
+            print(f"⚠ Warning: No returns for {name}, skipping CSV save")
+    
+    # Save performance summary (with _monthly suffix)
+    if metrics_rows:
+        metrics_df = pd.DataFrame(metrics_rows)
+        metrics_df = metrics_df.sort_values('sharpe_ratio', ascending=False)
+        summary_file = RESULTS_DIR / "strategy_performance_summary_monthly.csv"
+        metrics_df.to_csv(summary_file, index=False)
+        print(f"\n✓ Saved performance summary to {summary_file}")
+        print("\nPerformance Summary:")
+        print(metrics_df[['strategy', 'sharpe_ratio', 'annualized_return', 'annualized_volatility', 'max_drawdown']].to_string(index=False))
+    
+    # Create plots
+    print("\n" + "="*80)
+    print("CREATING PLOTS")
+    print("="*80)
+    
+    # Prepare strategy dict for plotting
+    plot_strategies = {}
+    for name, result in strategy_results.items():
+        plot_strategies[name] = {
+            'returns': result.returns,
+            'weights': result.weights,
+            'metrics': compute_performance_metrics(result.returns)
+        }
+    
+    # Plot cumulative returns (with _monthly suffix)
+    print("\nPlotting cumulative returns...")
+    plot_cumulative_returns_all_strategies(
+        plot_strategies, 
+        equity_returns=equity_ret,
+        bond_returns=bond_ret,
+        output_dir=RESULTS_DIR,
+        suffix="_monthly"
+    )
+    
+    # Plot performance comparison (with _monthly suffix)
+    print("Plotting performance comparison...")
+    plot_performance_comparison(plot_strategies, output_dir=RESULTS_DIR, suffix="_monthly")
+    
+    print("\n" + "="*80)
+    print("ANALYSIS COMPLETE")
+    print("="*80)
 
 
 if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code)
+    main()
 

@@ -11,8 +11,13 @@ import pandas as pd
 
 def _get_base_dir(base_dir: Optional[Path]) -> Path:
     if base_dir is not None:
-        return Path(base_dir)
-    return Path(__file__).parent.parent
+        base_dir = Path(base_dir)
+        # If base_dir is s2_regimeness, go up to main_project
+        if base_dir.name == "s2_regimeness":
+            return base_dir.parent
+        return base_dir
+    # Default: go up from trading_strategy -> s2_regimeness -> main_project
+    return Path(__file__).parent.parent.parent
 
 
 def load_market_data(base_dir: Optional[Path] = None) -> Tuple[pd.Series, pd.Series, pd.Series]:

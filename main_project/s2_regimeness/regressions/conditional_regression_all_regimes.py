@@ -49,6 +49,13 @@ if str(HMM_REGIMES_DIR) not in sys.path:
 
 from hmm_model import HMMRegimeModel
 
+# Import 2x2 regime definitions
+TWO_BY_TWO_DIR = SCRIPT_DIR.parent / 'regimes' / '2x2_regimes'
+if str(TWO_BY_TWO_DIR) not in sys.path:
+    sys.path.insert(0, str(TWO_BY_TWO_DIR))
+
+from regime_definitions import RegimeDefinitions
+
 class ConditionalRegressionAnalyzer:
     """
     Analyzes conditional regressions for all HMM regime specifications.
@@ -78,20 +85,34 @@ class ConditionalRegressionAnalyzer:
         self.macro_data = None
         self.erp_data = None
         self.regime_assignments = {}  # Dict: (combo_name, K) -> regime assignments
+        self.two_by_two_regimes = None  # 2x2 regime assignments
         self.regression_results = []  # List of all regression results
         
-        # Macro variable directories
+        # Macro variable directories - using only specified variables from the table
         self.macro_dirs = {
-            'ec_growth': ['export_price_index_processed 2.csv', 'import_price_index_processed 2.csv',
-                         'retail_sales_processed 2.csv', 'tot_business_inventories_processed 2.csv',
-                         'unemployment_processed 2.csv'],
-            'inflation': ['cpi_processed 2.csv', 'PCE_price_index_processed 2.csv', 
-                         'PPI_inflation_processed 2.csv'],
-            'mkt_vol': ['vix_processed_monthly.csv', 'nat_fin_condition_indx_processed_monthly.csv',
-                       '10y_2y_spread_processed_monthly.csv'],
-            'mon_policy': ['10y_treasury_const_maturity_rate_processed 2.csv',
-                          'fed_reserve_discount_rate_processed 2.csv',
-                          'fedfunds_processed 2.csv', 'm2_real_money_supply_processed 2.csv']
+            'ec_growth': [
+                'industrial_production_processed.csv',
+                'retail_sales_processed.csv',
+                'tot_business_inventories_processed.csv',
+                'export_price_index_processed.csv',
+                'import_price_index_processed.csv',
+                'unemployment_processed.csv'
+            ],
+            'inflation': [
+                'cpi_processed.csv',
+                'PCE_price_index_processed.csv',
+                'PPI_inflation_processed.csv'
+            ],
+            'mkt_vol': [
+                'nat_fin_condition_indx_processed_monthly.csv',
+                '10y_2y_spread_processed_monthly.csv'
+            ],
+            'mon_policy': [
+                '10y_treasury_const_maturity_rate_processed.csv',
+                'fed_reserve_discount_rate_processed.csv',
+                'fedfunds_processed.csv',
+                'm2_real_money_supply_processed.csv'
+            ]
         }
     
     def load_macro_variables(self) -> pd.DataFrame:
@@ -216,11 +237,20 @@ class ConditionalRegressionAnalyzer:
         print("="*80)
         
         # Load systematic results to get all combinations
-        results_file = (self.base_dir / 's1_macro_vars' / 's12_regimeness' / 'regimes' / 
-                       'HMM_regimes' / 'results_systematic' / 'all_model_results.csv')
+        # Try multiple possible paths
+        possible_paths = [
+            self.base_dir / 's2_regimeness' / 'regimes' / 'HMM_regimes' / 'results_systematic' / 'all_model_results.csv',
+            self.base_dir / 's1_macro_vars' / 's12_regimeness' / 'regimes' / 'HMM_regimes' / 'results_systematic' / 'all_model_results.csv',
+        ]
         
-        if not results_file.exists():
-            raise FileNotFoundError(f"Results file not found: {results_file}")
+        results_file = None
+        for path in possible_paths:
+            if path.exists():
+                results_file = path
+                break
+        
+        if results_file is None:
+            raise FileNotFoundError(f"Results file not found. Tried: {possible_paths}")
         
         results_df = pd.read_csv(results_file)
         
@@ -303,6 +333,67 @@ class ConditionalRegressionAnalyzer:
         
         return regime_assignments
     
+    def load_2x2_regimes(self) -> pd.DataFrame:
+        """
+        Load 2x2 regime assignments (hard thresholds).
+        
+        Returns:
+        --------
+        DataFrame with date and regime columns (regime: 0-3)
+        """
+        print("\n" + "="*80)
+        print("LOADING 2X2 REGIME ASSIGNMENTS")
+        print("="*80)
+        
+        # Load macro data for regime classification
+        macro_final_path = self.base_dir / 'data' / 'macro_final' / 'final_macro.csv'
+        macro_final = pd.read_csv(macro_final_path, parse_dates=['date'])
+        
+        # Initialize 2x2 regime definitions
+        regime_def = RegimeDefinitions(threshold_method='median')
+        
+        # Determine thresholds
+        growth_data = macro_final['growth_factor'].dropna()
+        inflation_data = macro_final['inflation_factor'].dropna()
+        regime_def.determine_thresholds(growth_data, inflation_data)
+        
+        # Classify regimes
+        regimes = regime_def.classify_dataframe(
+            macro_final,
+            growth_col='growth_factor',
+            inflation_col='inflation_factor'
+        )
+        
+        # Create DataFrame
+        regime_df = pd.DataFrame({
+            'date': macro_final['date'].values,
+            'regime': regimes.values
+        })
+        
+        # Convert to monthly (end of month)
+        regime_df['date'] = pd.to_datetime(regime_df['date'])
+        regime_df = regime_df.set_index('date').sort_index()
+        regime_df = regime_df.resample('ME').last()
+        regime_df = regime_df.reset_index()
+        
+        # Convert hard assignments to probability format (for compatibility)
+        # For 2x2, we use hard assignments: 1.0 for assigned regime, 0.0 for others
+        for regime_id in range(4):
+            regime_df[f'prob_R{regime_id}'] = (regime_df['regime'] == regime_id).astype(float)
+        
+        print(f"  ✓ Loaded {len(regime_df)} 2x2 regime assignments")
+        print(f"  ✓ Growth threshold: {regime_def.growth_threshold:.4f}")
+        print(f"  ✓ Inflation threshold: {regime_def.inflation_threshold:.4f}")
+        print(f"  ✓ Regime distribution:")
+        for regime_id in range(4):
+            count = (regime_df['regime'] == regime_id).sum()
+            pct = count / len(regime_df) * 100
+            name = regime_def.get_regime_short_name(regime_id)
+            print(f"      {name} (R{regime_id}): {count} periods ({pct:.1f}%)")
+        
+        self.two_by_two_regimes = regime_df
+        return regime_df
+    
     def run_conditional_regressions(self) -> pd.DataFrame:
         """
         Run conditional regressions for each regime using weighted regressions.
@@ -338,6 +429,8 @@ class ConditionalRegressionAnalyzer:
             self.load_erp()
         if not self.regime_assignments:
             self.load_hmm_regimes()
+        if self.two_by_two_regimes is None:
+            self.load_2x2_regimes()
         
         # Combine ERP and macro data
         combined = pd.merge(self.erp_data, self.macro_data, on='date', how='inner')
@@ -351,7 +444,7 @@ class ConditionalRegressionAnalyzer:
         
         all_results = []
         
-        # For each regime specification
+        # Process HMM regimes
         for (combo_name, k), regime_df in self.regime_assignments.items():
             print(f"\n{combo_name}, K={k}...")
             
@@ -490,6 +583,143 @@ class ConditionalRegressionAnalyzer:
                     
                 except Exception as e:
                     print(f"    Regime {regime}: Error - {e}")
+                    continue
+        
+        # Process 2x2 regimes (hard assignments, K=4)
+        if self.two_by_two_regimes is not None:
+            print(f"\n{'='*80}")
+            print("PROCESSING 2X2 REGIMES (HARD THRESHOLDS, K=4)")
+            print("="*80)
+            
+            combo_name = "2x2_growth_inflation"
+            k = 4
+            regime_df = self.two_by_two_regimes.copy()
+            
+            print(f"\n{combo_name}, K={k}...")
+            
+            # Merge regime assignments
+            prob_cols = [col for col in regime_df.columns if col.startswith('prob_R')]
+            merge_cols = ['date'] + prob_cols
+            combined_with_regime = pd.merge(
+                combined,
+                regime_df[merge_cols],
+                on='date',
+                how='inner'
+            )
+            
+            if len(combined_with_regime) == 0:
+                print(f"  ⚠️  No overlapping dates")
+            else:
+                # Get all regimes (0 to 3)
+                all_regimes = list(range(k))
+                print(f"  Running weighted regressions for {len(all_regimes)} regimes...")
+                print(f"  (Using hard regime assignments: weight=1.0 for assigned regime, 0.0 otherwise)")
+                
+                for regime in all_regimes:
+                    prob_col = f'prob_R{regime}'
+                    
+                    if prob_col not in combined_with_regime.columns:
+                        print(f"    Regime {regime}: No probability column found")
+                        continue
+                    
+                    # Get regime assignments as weights (hard: 1.0 or 0.0)
+                    weights = combined_with_regime[prob_col].values
+                    
+                    regime_data = combined_with_regime.copy()
+                    
+                    # Prepare data
+                    X = regime_data[macro_vars].values
+                    y = regime_data['erp'].values
+                    
+                    # Remove columns with all NaN
+                    valid_cols = ~np.isnan(X).all(axis=0)
+                    X = X[:, valid_cols]
+                    valid_var_names = [macro_vars[i] for i in range(len(macro_vars)) if valid_cols[i]]
+                    
+                    if X.shape[1] == 0:
+                        print(f"    Regime {regime}: No valid variables")
+                        continue
+                    
+                    # Remove rows with any NaN in X or y, or zero weight
+                    valid_rows = (~np.isnan(X).any(axis=1) & ~np.isnan(y) & 
+                                 ~np.isnan(weights) & (weights > 1e-6))
+                    X = X[valid_rows]
+                    y = y[valid_rows]
+                    weights_valid = weights[valid_rows]
+                    
+                    if len(y) < 10:
+                        print(f"    Regime {regime}: Only {len(y)} valid observations (skipping)")
+                        continue
+                    
+                    # Standardize features
+                    scaler = StandardScaler()
+                    X_scaled = scaler.fit_transform(X)
+                    
+                    # Fit weighted regression
+                    try:
+                        model = LinearRegression()
+                        model.fit(X_scaled, y, sample_weight=weights_valid)
+                        
+                        # Get predictions
+                        y_pred = model.predict(X_scaled)
+                        
+                        # Calculate statistics (weighted)
+                        n = len(y)
+                        p = X_scaled.shape[1]
+                        residuals = y - y_pred
+                        
+                        # Weighted MSE
+                        weighted_mse = np.average(residuals**2, weights=weights_valid)
+                        rmse = np.sqrt(weighted_mse)
+                        
+                        # Weighted R-squared
+                        y_mean_weighted = np.average(y, weights=weights_valid)
+                        ss_res_weighted = np.average(residuals**2, weights=weights_valid)
+                        ss_tot_weighted = np.average((y - y_mean_weighted)**2, weights=weights_valid)
+                        r_squared = 1 - (ss_res_weighted / ss_tot_weighted) if ss_tot_weighted > 0 else 0
+                        
+                        # Effective sample size (sum of weights)
+                        n_eff = np.sum(weights_valid)
+                        
+                        # Average weight
+                        avg_weight = np.mean(weights_valid)
+                        
+                        # Standard errors and t-stats
+                        if n_eff > p + 1:
+                            var_residual = ss_res_weighted * n_eff / (n_eff - p - 1)
+                            X_weighted = X_scaled * np.sqrt(weights_valid[:, np.newaxis])
+                            var_coef = var_residual * np.linalg.inv(X_weighted.T @ X_weighted)
+                            se_coef = np.sqrt(np.diag(var_coef))
+                            t_stats = model.coef_ / se_coef
+                            p_values = 2 * (1 - stats.t.cdf(np.abs(t_stats), n_eff - p - 1))
+                        else:
+                            se_coef = np.full(p, np.nan)
+                            t_stats = np.full(p, np.nan)
+                            p_values = np.full(p, np.nan)
+                        
+                        # Store results
+                        for i, var_name in enumerate(valid_var_names):
+                            all_results.append({
+                                'combination': combo_name,
+                                'K': k,
+                                'regime': regime,
+                                'variable': var_name,
+                                'coefficient': model.coef_[i],
+                                't_statistic': t_stats[i],
+                                'p_value': p_values[i],
+                                'n_observations': n,
+                                'n_effective': n_eff,
+                                'avg_weight': avg_weight,
+                                'r_squared': r_squared,
+                                'rmse': rmse
+                            })
+                        
+                        print(f"    Regime {regime}: n={n}, n_eff={n_eff:.1f}, avg_weight={avg_weight:.3f}, R²={r_squared:.3f}, RMSE={rmse:.4f}")
+                        
+                    except Exception as e:
+                        print(f"    Regime {regime}: Error - {e}")
+                        import traceback
+                        traceback.print_exc()
                     continue
         
         results_df = pd.DataFrame(all_results)

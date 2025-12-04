@@ -52,7 +52,9 @@ class HMMRegimeModel:
         covariance_type: str = 'diag',
         n_iter: int = 200,
         random_state: int = 42,
-        variables: Optional[List[str]] = None
+        variables: Optional[List[str]] = None,
+        covar_reg: float = 0.1,
+        min_covar: float = 0.01
     ):
         """
         Initialize HMM model.
@@ -70,11 +72,17 @@ class HMMRegimeModel:
         variables : List[str], optional
             List of variable names to use (e.g., ['growth_factor', 'inflation_factor']).
             If None, uses all 4 variables.
+        covar_reg : float
+            Covariance regularization factor (default 0.1). Higher values shrink covariances more.
+        min_covar : float
+            Minimum covariance value to prevent regimes from becoming too narrow (default 0.01).
         """
         self.n_regimes = n_regimes
         self.covariance_type = covariance_type
         self.n_iter = n_iter
         self.random_state = random_state
+        self.covar_reg = covar_reg
+        self.min_covar = min_covar
         
         # Set variables to use
         if variables is None:
@@ -186,10 +194,103 @@ class HMMRegimeModel:
         if best_model is None:
             raise RuntimeError("Failed to fit HMM model after all initializations")
         
+        # Apply regularization to encourage regime separation
+        print(f"  Covariances before regularization:")
+        if best_model.covars_.ndim == 3:
+            for i in range(self.n_regimes):
+                diag_before = np.diag(best_model.covars_[i])
+                print(f"    R{i}: {diag_before}")
+        
+        self._regularize_covariances(best_model, features)
+        
+        print(f"  Covariances after regularization:")
+        if best_model.covars_.ndim == 3:
+            for i in range(self.n_regimes):
+                diag_after = np.diag(best_model.covars_[i])
+                print(f"    R{i}: {diag_after}")
+        
         self.model = best_model
         print(f"  Best log-likelihood: {best_log_likelihood:.2f}")
         
         return self
+    
+    def _regularize_covariances(self, model: hmm.GaussianHMM, features: np.ndarray) -> None:
+        """
+        Apply regularization to covariance matrices to encourage regime separation.
+        
+        This shrinks large covariances and ensures minimum covariance values,
+        which helps prevent regimes from overlapping too much.
+        
+        Parameters:
+        -----------
+        model : hmm.GaussianHMM
+            Fitted HMM model to regularize
+        features : np.ndarray
+            Feature matrix used for fitting
+        """
+        # Get current covariances
+        covars = model.covars_.copy()
+        n_features = features.shape[1]
+        
+        if self.covariance_type == 'diag':
+            # For diagonal covariance, hmmlearn stores as (n_regimes, n_features, n_features)
+            # but only diagonal elements are used. We need to extract and modify diagonals.
+            if covars.ndim == 3:
+                # Extract diagonal elements: shape (n_regimes, n_features)
+                diag_covars = np.array([np.diag(covars[i]) for i in range(self.n_regimes)])
+            elif covars.ndim == 2:
+                # Already in (n_regimes, n_features) format
+                diag_covars = covars
+            else:
+                print(f"Warning: Unexpected covars shape {covars.shape}, skipping regularization")
+                return
+            
+            # Calculate average covariance across all regimes
+            avg_covar = np.mean(diag_covars, axis=0)  # Average across regimes for each feature
+            
+            # Regularize: shrink large covariances towards average, but keep minimum
+            for i in range(self.n_regimes):
+                for j in range(n_features):
+                    # Shrink towards average, but ensure minimum
+                    diag_covars[i, j] = (
+                        (1 - self.covar_reg) * diag_covars[i, j] + 
+                        self.covar_reg * avg_covar[j]
+                    )
+                    diag_covars[i, j] = np.maximum(diag_covars[i, j], self.min_covar)
+            
+            # For diagonal covariance, hmmlearn stores as (n_regimes, n_features, n_features)
+            # but the setter accepts (n_regimes, n_features) and converts it internally
+            # However, we need to ensure the model is in a valid state
+            # Try setting directly - hmmlearn should handle the conversion
+            try:
+                model.covars_ = diag_covars
+            except ValueError:
+                # If that fails, reconstruct the 3D array
+                new_covars_3d = np.zeros((self.n_regimes, n_features, n_features))
+                for i in range(self.n_regimes):
+                    np.fill_diagonal(new_covars_3d[i], diag_covars[i])
+                model.covars_ = new_covars_3d
+            
+        elif self.covariance_type == 'full':
+            # For full covariance, regularize diagonal elements
+            for i in range(self.n_regimes):
+                diag = np.diag(covars[i])
+                avg_diag = np.mean(diag)
+                diag = (1 - self.covar_reg) * diag + self.covar_reg * avg_diag
+                diag = np.maximum(diag, self.min_covar)
+                np.fill_diagonal(covars[i], diag)
+            model.covars_ = covars
+            
+        elif self.covariance_type == 'spherical':
+            # Single value per regime
+            avg_covar = np.mean(covars)
+            for i in range(self.n_regimes):
+                covars[i] = (
+                    (1 - self.covar_reg) * covars[i] + 
+                    self.covar_reg * avg_covar
+                )
+                covars[i] = np.maximum(covars[i], self.min_covar)
+            model.covars_ = covars
     
     def predict(self, features: np.ndarray) -> np.ndarray:
         """

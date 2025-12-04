@@ -7,7 +7,7 @@ This module implements strategies:
 """
 
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 
 import numpy as np
 import pandas as pd
@@ -15,8 +15,101 @@ from sklearn.preprocessing import StandardScaler
 
 # Import HMM model
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "s1_macro_vars" / "s12_regimeness" / "regimes" / "HMM_regimes"))
+HMM_REGIMES_DIR = Path(__file__).parent.parent / "regimes" / "HMM_regimes"
+if str(HMM_REGIMES_DIR) not in sys.path:
+    sys.path.insert(0, str(HMM_REGIMES_DIR))
 from hmm_model import HMMRegimeModel
+
+
+def get_variables_from_combination(combination: str) -> List[str]:
+    """
+    Extract variable names from combination name.
+    
+    Parameters:
+    -----------
+    combination : str
+        Combination name like 'all_4vars' or '2vars_growth_inflation'
+    
+    Returns:
+    --------
+    List[str]
+        List of variable factor names
+    """
+    ALL_VARIABLES = [
+        'growth_factor',
+        'inflation_factor',
+        'monetary_policy_factor',
+        'market_volatility_factor'
+    ]
+    
+    if combination == 'all_4vars':
+        return ALL_VARIABLES
+    
+    # Extract from 2vars_* format
+    if combination.startswith('2vars_'):
+        var_names_str = combination.replace('2vars_', '')
+        
+        # Handle multi-word variable names by checking for known patterns
+        # Known variable name patterns (in order of specificity)
+        known_patterns = [
+            ('market_volatility', 'market_volatility_factor'),
+            ('monetary_policy', 'monetary_policy_factor'),
+            ('growth', 'growth_factor'),
+            ('inflation', 'inflation_factor'),
+        ]
+        
+        variables = []
+        remaining = var_names_str
+        
+        # Try to match patterns from most specific to least specific
+        for pattern, factor_name in known_patterns:
+            if pattern in remaining:
+                variables.append(factor_name)
+                # Remove matched pattern (with surrounding underscores if present)
+                remaining = remaining.replace(pattern, '').strip('_')
+        
+        # If we didn't match both variables, try splitting by underscore
+        if len(variables) < 2:
+            parts = var_names_str.split('_')
+            # Try to reconstruct variable names
+            var_map = {
+                'growth': 'growth_factor',
+                'inflation': 'inflation_factor',
+                'monetary': 'monetary_policy_factor',
+                'policy': 'monetary_policy_factor',
+                'market': 'market_volatility_factor',
+                'volatility': 'market_volatility_factor'
+            }
+            
+            # Check for two-word combinations first
+            if 'monetary' in parts and 'policy' in parts:
+                variables.append('monetary_policy_factor')
+                parts = [p for p in parts if p not in ['monetary', 'policy']]
+            if 'market' in parts and 'volatility' in parts:
+                variables.append('market_volatility_factor')
+                parts = [p for p in parts if p not in ['market', 'volatility']]
+            
+            # Handle remaining single-word parts
+            for part in parts:
+                if part in var_map:
+                    var_name = var_map[part]
+                    if var_name not in variables:
+                        variables.append(var_name)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        result = []
+        for v in variables:
+            if v not in seen:
+                seen.add(v)
+                result.append(v)
+        
+        if len(result) != 2:
+            raise ValueError(f"Could not extract exactly 2 variables from {combination}. Got: {result}")
+        
+        return result
+    
+    raise ValueError(f"Unknown combination format: {combination}")
 
 
 def load_hmm_model_and_coefficients(
@@ -39,13 +132,26 @@ def load_hmm_model_and_coefficients(
     if base_dir is None:
         base_dir = Path(__file__).parent.parent
     
+    # If base_dir is s2_regimeness, go up to main_project
+    if base_dir.name == "s2_regimeness":
+        main_project_dir = base_dir.parent
+    else:
+        main_project_dir = base_dir
+    
     # Load macro data (base factors for HMM fitting)
-    macro_path = base_dir / "data" / "macro_final" / "final_macro.csv"
+    macro_path = main_project_dir / "data" / "macro_final" / "final_macro.csv"
     macro_df = pd.read_csv(macro_path, parse_dates=["date"]).set_index("date").sort_index()
     
     # Load regression coefficients
     reg_path = (
-        base_dir / "s1_macro_vars" / "s12_regimeness" / "regressions" / "results" /
+        base_dir / "regressions" / "results" /
+        "conditional_regression_results_all.csv"
+    )
+    
+    if not reg_path.exists():
+        # Try alternative path
+        reg_path = (
+            main_project_dir / "s1_macro_vars" / "s12_regimeness" / "regressions" / "results" /
         "conditional_regression_results_all.csv"
     )
     reg_df = pd.read_csv(reg_path)
@@ -64,10 +170,15 @@ def load_hmm_model_and_coefficients(
         regime_data = reg_subset[reg_subset["regime"] == regime]
         coefficients[int(regime)] = dict(zip(regime_data["variable"], regime_data["coefficient"]))
     
+    # Extract variables from combination name
+    variables = get_variables_from_combination(combination)
+    
     # Load and fit HMM model
     # We need to fit it on the full historical data
-    variables = ["growth_factor", "inflation_factor"]
     feature_data = macro_df[variables].dropna()
+    
+    if len(feature_data) == 0:
+        raise ValueError(f"No data available for variables: {variables}")
     
     scaler = StandardScaler()
     features = scaler.fit_transform(feature_data.values)
@@ -75,7 +186,9 @@ def load_hmm_model_and_coefficients(
     hmm_model = HMMRegimeModel(
         n_regimes=k,
         variables=variables,
-        random_state=42
+        random_state=42,
+        covar_reg=0.5,  # Strong regularization to encourage separation (shrink large covariances by 50%)
+        min_covar=0.1   # Minimum covariance to prevent regimes from being too narrow
     )
     hmm_model.scaler = scaler
     hmm_model.fit(features, n_init=5)
@@ -85,31 +198,33 @@ def load_hmm_model_and_coefficients(
 
 def get_regime_probabilities(
     hmm_model: HMMRegimeModel,
-    growth_values: pd.Series,
-    inflation_values: pd.Series
+    macro_df: pd.DataFrame
 ) -> pd.DataFrame:
     """
-    Get regime probabilities from HMM model given growth and inflation values.
+    Get regime probabilities from HMM model given macro variables.
     
     Parameters:
     -----------
     hmm_model : HMMRegimeModel
         Fitted HMM model
-    growth_values : pd.Series
-        Growth factor values (indexed by date)
-    inflation_values : pd.Series
-        Inflation factor values (indexed by date)
+    macro_df : pd.DataFrame
+        DataFrame with macro variables (must include all variables used by the model)
     
     Returns:
     --------
     pd.DataFrame
         DataFrame with columns prob_R0, prob_R1, ..., prob_R{k-1}, indexed by date
     """
-    # Align series
-    aligned = pd.DataFrame({
-        "growth_factor": growth_values,
-        "inflation_factor": inflation_values
-    }).dropna()
+    # Extract variables used by the model
+    variables = hmm_model.variables
+    
+    # Check if all variables are present
+    missing_vars = [v for v in variables if v not in macro_df.columns]
+    if missing_vars:
+        raise ValueError(f"Missing variables in macro_df: {missing_vars}")
+    
+    # Extract and align data
+    aligned = macro_df[variables].dropna()
     
     if aligned.empty:
         return pd.DataFrame()
@@ -250,19 +365,29 @@ def strategy_forecast_based(
     forecast_df["date"] = forecast_df["date"].dt.to_period("M").dt.to_timestamp("M")
     forecast_df = forecast_df.set_index("date").sort_index()
     
-    # Get forecasted growth and inflation
-    growth_forecast = forecast_df["growth_prediction"]
-    inflation_forecast = forecast_df["inflation_prediction"]
+    # Get variables used by the model
+    variables = hmm_model.variables
+    
+    # Create a temporary macro_df with forecasted values for regime variables
+    # For variables that are forecasted (growth, inflation), use forecasts
+    # For other variables, use actual values
+    temp_macro_df = macro_df.copy()
+    
+    if "growth_factor" in variables and "growth_prediction" in forecast_df.columns:
+        temp_macro_df["growth_factor"] = forecast_df["growth_prediction"].reindex(temp_macro_df.index, method='ffill')
+    if "inflation_factor" in variables and "inflation_prediction" in forecast_df.columns:
+        temp_macro_df["inflation_factor"] = forecast_df["inflation_prediction"].reindex(temp_macro_df.index, method='ffill')
     
     # Get regime probabilities from forecasts
-    regime_probs = get_regime_probabilities(hmm_model, growth_forecast, inflation_forecast)
+    regime_probs = get_regime_probabilities(hmm_model, temp_macro_df)
     
-    # Compute ERP forecast using macro vars at T
+    # Compute ERP forecast using macro vars at T (actual values, not forecasts)
+    exclude_vars = variables  # Exclude all variables used for regime detection
     erp_forecast = compute_weighted_erp_forecast(
         regime_probs,
         coefficients,
         macro_df,
-        exclude_vars=["growth_factor", "inflation_factor"]
+        exclude_vars=exclude_vars
     )
     
     return erp_forecast
@@ -276,19 +401,17 @@ def strategy_actual_based(
     """
     Strategy 2: Use actual values at T to determine regime mix, apply to macro vars at T.
     """
-    # Get actual growth and inflation
-    growth_actual = macro_df["growth_factor"]
-    inflation_actual = macro_df["inflation_factor"]
-    
     # Get regime probabilities from actuals
-    regime_probs = get_regime_probabilities(hmm_model, growth_actual, inflation_actual)
+    regime_probs = get_regime_probabilities(hmm_model, macro_df)
     
     # Compute ERP forecast using macro vars at T
+    # Exclude variables used for regime detection
+    exclude_vars = hmm_model.variables
     erp_forecast = compute_weighted_erp_forecast(
         regime_probs,
         coefficients,
         macro_df,
-        exclude_vars=["growth_factor", "inflation_factor"]
+        exclude_vars=exclude_vars
     )
     
     return erp_forecast
@@ -297,10 +420,11 @@ def strategy_actual_based(
 def generate_all_hmm_strategies(
     macro_df: pd.DataFrame,
     forecast_df: pd.DataFrame,
-    base_dir: Optional[Path] = None
+    base_dir: Optional[Path] = None,
+    k: int = 4
 ) -> Dict[str, pd.Series]:
     """
-    Generate all HMM-based strategies.
+    Generate all HMM-based strategies for all combinations with K=4.
     
     Parameters:
     -----------
@@ -310,41 +434,49 @@ def generate_all_hmm_strategies(
         Forecast dataframe with columns: date, inflation_prediction, growth_prediction
     base_dir : Optional[Path]
         Base directory for loading data
+    k : int
+        Number of regimes (default: 4)
     
     Returns:
     --------
     Dict[str, pd.Series]
         Dictionary mapping strategy name -> ERP forecast series
     """
-    # Load HMM model and coefficients
-    hmm_model, coefficients, _ = load_hmm_model_and_coefficients(base_dir=base_dir)
+    # All combinations to test
+    combinations = [
+        'all_4vars',
+        '2vars_growth_inflation',
+        '2vars_growth_monetary_policy',
+        '2vars_growth_market_volatility',
+        '2vars_inflation_monetary_policy',
+        '2vars_inflation_market_volatility',
+        '2vars_market_volatility_monetary_policy'
+    ]
     
     strategies = {}
     
-    # Strategy 1: Forecast-based
+    for combination in combinations:
     try:
-        strategies["hmm_forecast_based"] = strategy_forecast_based(
-            hmm_model, coefficients, macro_df, forecast_df
-        )
-    except Exception as e:
-        print(f"Error in forecast-based strategy: {e}")
-        import traceback
-        traceback.print_exc()
-        strategies["hmm_forecast_based"] = pd.Series(dtype=float)
+            # Load HMM model and coefficients for this combination
+            hmm_model, coefficients, _ = load_hmm_model_and_coefficients(
+                base_dir=base_dir,
+                combination=combination,
+                k=k
+            )
     
-    # Strategy 2: Actual-based
-    try:
-        strategies["hmm_actual_based"] = strategy_actual_based(
+            # Generate actual-based strategy
+            strategy_name = f"hmm_{combination}_k{k}_actual_based"
+            strategies[strategy_name] = strategy_actual_based(
             hmm_model, coefficients, macro_df
         )
+            print(f"✓ Generated {strategy_name}")
+            
     except Exception as e:
-        print(f"Error in actual-based strategy: {e}")
+            print(f"✗ Error with {combination}, K={k}: {e}")
         import traceback
         traceback.print_exc()
-        strategies["hmm_actual_based"] = pd.Series(dtype=float)
-    
-    # Strategy 3: Fixed 50/50 benchmark (no forecast needed, handled in main.py)
-    # We'll return None for this and handle it separately
+            strategy_name = f"hmm_{combination}_k{k}_actual_based"
+            strategies[strategy_name] = pd.Series(dtype=float)
     
     return strategies
 
