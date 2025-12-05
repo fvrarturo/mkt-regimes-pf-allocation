@@ -222,7 +222,10 @@ When analyzing:
 - Consider the context and implications of the news
 - Be consistent with economic logic (e.g., high inflation often correlates with hawkish policy expectations)
 
-**SMOOTHING GUIDELINE**: Macroeconomic sentiment evolves gradually. Unless there's a major crisis or policy announcement, scores should change incrementally week-to-week (typically < 0.2 points). Avoid dramatic jumps - if sentiment needs to shift significantly, it should happen gradually over multiple weeks. That said, if the news is very clear and there is a major event, the score can change significantly in one week.
+**SMOOTHING GUIDELINE**: Macroeconomic sentiment evolves gradually. 
+Unless there's a major crisis or policy announcement, scores should change incrementally week-to-week (typically < 0.2 points). 
+Avoid dramatic jumps - if sentiment needs to shift significantly, it should happen gradually over multiple weeks. 
+That said, if the news is very clear and there is a major event, the score can change significantly in one week.
 
 Output your analysis as structured sentiment scores with brief reasoning."""
 
@@ -269,7 +272,8 @@ Your role is to verify that sentiment scores are:
 1. **Internally consistent**: Scores should make economic sense together (e.g., high inflation sentiment should often align with hawkish policy sentiment)
 2. **Temporally consistent**: Scores should align with recent trends and change smoothly over time
 3. **News-justified**: Scores should be supported by the actual news content provided
-4. **Consistency with previous weeks' scores**: Scores should be consistent with previous weeks' scores. For that, you should understand how previous scores were computed based on the news content, and see whether the new scores are consistent with that analysis.
+4. **Consistency with previous weeks' scores**: Scores should be consistent with previous weeks' scores. 
+For that, you should understand how previous scores were computed based on the news content, and see whether the new scores are consistent with that analysis.
 
 **SMOOTHING CONSTRAINT**: Sentiment scores should change gradually week-to-week:
 - Week-to-week changes > 0.5 points require STRONG news justification (major events, policy announcements, crises)
