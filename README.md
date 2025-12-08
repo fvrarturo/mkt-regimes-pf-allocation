@@ -2,7 +2,7 @@
 
 This project asks a central question:
 
-> **Can macroeconomic data and news-based sentiment be used to forecast the U.S. equity risk premium (ERP) and improve a dynamic allocation between equities and bonds?** :contentReference[oaicite:0]{index=0}  
+> **Can macroeconomic data and news-based sentiment be used to forecast the U.S. equity risk premium (ERP) and improve a dynamic allocation between equities and bonds?**
 
 We study this through three complementary empirical blocks:
 
@@ -17,7 +17,7 @@ We study this through three complementary empirical blocks:
 - **Target variable – Equity Risk Premium (ERP)**  
   - Monthly excess return of the S&P 500 over the 3-month U.S. T-bill.  
   - S&P 500: geometric monthly return from month-end index levels.  
-  - T-bill: convert daily annualized yields into daily simple returns and compound within each month to get the risk-free return. :contentReference[oaicite:1]{index=1}  
+  - T-bill: convert daily annualized yields into daily simple returns and compound within each month to get the risk-free return.
 
 - **Macro predictors**  
   - 15+ monthly macro variables across: inflation, real activity, labor market, money and credit, term structure, and financial conditions (e.g., industrial production, inventories, unemployment, M2, term spread, NFCI).  
@@ -37,7 +37,7 @@ We study this through three complementary empirical blocks:
      Z_t = \frac{\widehat{ERP}_{t+1} - \mu_{t-1}}{\sigma_{t-1}}
      $$
   3. Map $Z_t$ into an equity weight using a **banded rule**, with weights bounded between 25% and 75% equity (symmetric around ~50% benchmark).  
-  4. Benchmark: a constant-mix portfolio holding the same average equity weight as the strategy. :contentReference[oaicite:2]{index=2}  
+  4. Benchmark: a constant-mix portfolio holding the same average equity weight as the strategy.
 
 ---
 
@@ -68,7 +68,7 @@ Use standard macro predictive regressions to forecast the ERP and see whether th
      1. Run LASSO to select variables.  
      2. Refit OLS on the selected subset for interpretability.  
 
-   - Frequently selected predictors: industrial production, unemployment, inventories, real M2, 10y–2y term spread, NFCI. :contentReference[oaicite:3]{index=3}  
+   - Frequently selected predictors: industrial production, unemployment, inventories, real M2, 10y–2y term spread, NFCI.
 
 ### Findings
 
@@ -103,7 +103,7 @@ We build two types of regime frameworks:
 #### A. Simple 2×2 Growth/Inflation Matrix
 
 - Define **growth** and **inflation** as “high” or “low” relative to rolling medians.  
-- This yields four intuitive quadrants: :contentReference[oaicite:4]{index=4}  
+- This yields four intuitive quadrants:
   - **Goldilocks** – High growth / Low inflation  
   - **Overheating** – High growth / High inflation  
   - **Stagflation** – Low growth / High inflation  
@@ -125,7 +125,7 @@ We build two types of regime frameworks:
 - The HMM learns:
   - State-specific means and covariances.  
   - Transition probabilities between regimes.  
-- Output: **soft probabilities** $P(\text{regime } r | \text{data}_t)$ for each date. :contentReference[oaicite:5]{index=5}  
+- Output: **soft probabilities** $P(\text{regime } r | \text{data}_t)$ for each date.
 
 **Model selection**
 
@@ -146,7 +146,7 @@ $$
   $$
   w_{r,t} = P(\text{regime } r | \text{data}_t)
   $$
-  so ambiguous periods are handled smoothly. :contentReference[oaicite:6]{index=6}  
+  so ambiguous periods are handled smoothly.
 
 We then:
 
@@ -162,7 +162,7 @@ We then:
   3. Forecast $ERP_{t+1}$ using:
      - **2×2**: coefficients of the active regime at time $t$.  
      - **HMM**: a **probability-weighted mixture** of all regime regressions.  
-  4. Translate forecast into equity weight via the same Z-score banded rule. :contentReference[oaicite:7]{index=7}  
+  4. Translate forecast into equity weight via the same Z-score banded rule.
 
 ### Results
 
@@ -193,7 +193,7 @@ Augment macro variables with **news-based macro sentiment** and use **nonlinear 
 - Period: 1990–2025.  
 - Filter: macro-relevant news (policy, inflation, growth, financial stability), exclude firm-specific headlines.  
 
-**Three-Agent System** :contentReference[oaicite:8]{index=8}  
+**Three-Agent System** :
 
 1. **News Analyst Agent (A1)**  
    - Reads and summarizes macro news each month.  
@@ -263,7 +263,7 @@ We consider two model classes:
 - Well suited because:
   - ERP reflects **persistent macro forces**.  
   - LSTM captures **long-range dependencies** and **nonlinear interactions**.  
-  - Rolling retraining lets it adapt to new regimes over time. :contentReference[oaicite:9]{index=9}  
+  - Rolling retraining lets it adapt to new regimes over time.
 
 #### B. XGBoost (Gradient Boosted Trees)
 
@@ -271,7 +271,7 @@ We consider two model classes:
 - Naturally captures:
   - Nonlinearities  
   - Interaction terms (e.g., Growth × Inflation, Policy × Volatility)  
-  - Mixed feature types (macro + sentiment). :contentReference[oaicite:10]{index=10}  
+  - Mixed feature types (macro + sentiment).
 
 **Feature sets for both models**
 
@@ -288,7 +288,7 @@ This allows us to isolate the **incremental value of sentiment** and compare LLM
 - Out-of-sample evaluation over ~15 years.  
 - Overfitting control:  
   - Regularization + early stopping (validation split).  
-- Allocation: same Z-score banded rule as in previous blocks, benchmarked to matching constant-mix portfolio. :contentReference[oaicite:11]{index=11}  
+- Allocation: same Z-score banded rule as in previous blocks, benchmarked to matching constant-mix portfolio.
 
 ### Results
 
@@ -296,7 +296,7 @@ This allows us to isolate the **incremental value of sentiment** and compare LLM
 - Adding sentiment **improves performance**, particularly by:
   - Reducing drawdowns.  
   - Lowering volatility.  
-- **Groq sentiment + XGBoost** delivers the **highest Sharpe ratio** and the best drawdown profile among ML models. :contentReference[oaicite:12]{index=12}  
+- **Groq sentiment + XGBoost** delivers the **highest Sharpe ratio** and the best drawdown profile among ML models.
 
 **Takeaway:**  
 > **Combining macro data with LLM-derived sentiment and nonlinear ML models provides a tangible edge for dynamic allocation.**
